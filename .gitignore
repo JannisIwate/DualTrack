@@ -1,4 +1,12 @@
+#models
+DualTrack_auxiliary/model
+scripts/model
+
 #data
+DualTrack_auxiliary/training_data_*
+DualTrack_auxiliary/validation_data_*
+DualTrack_auxiliary/data_*
+
 logs
 network-data
 outputs
