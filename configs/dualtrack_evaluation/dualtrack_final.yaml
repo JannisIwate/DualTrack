@@ -2,8 +2,8 @@ model:
   name: dualtrack_tus_rec_2024
 
 data: 
-  dataset: tus-rec-val
-  num_workers: 1
+  dataset: tus-rec-25-val
+  num_workers: 0
   global_encoder_preprocessing_kw:  
     in_channels: 1
     mean: [0]
@@ -21,6 +21,9 @@ train:
   warmup_epochs: 10
   weight_decay: 0.0
   val_every: 10
+
+test_cfg:
+  empty_cache_every_n_batches: 1
 
 seed: 0
 device: cuda

@@ -1,6 +1,7 @@
 #models
 DualTrack_auxiliary/model
 scripts/model
+configs/model
 
 #data
 DualTrack_auxiliary/training_data_*

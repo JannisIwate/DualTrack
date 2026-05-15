@@ -108,6 +108,9 @@ class SweepsDataset(Dataset):
         if self.limit_scans is not None:
             self.metadata = self.metadata.iloc[: self.limit_scans]
 
+
+        print(self.metadata.columns)
+
         assert self.metadata['sweep_id'].is_unique, "Sweep IDs are not unique"
 
         self.data = {}

@@ -20,10 +20,14 @@ seaborn==0.13.2
 submitit==1.5.4
 tensordict==0.12.3
 tensorflow==2.21.0
+tensorboard
 timm==1.0.27
-torch==2.12.0
+torch==2.6.0
+#torch==2.12.0
 torchinfo==1.8.0
-torchvision==0.27.0
+torchvision==0.21.0
+#torchvision==0.27.0
 tqdm==4.67.3
-transformers==5.8.1
+#transformers==5.8.1
+transformers==4.40
 wandb==0.26.1

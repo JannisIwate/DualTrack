@@ -468,6 +468,12 @@ def run_full_test_loop(
         # Save metrics at each sweep so it updates as we evaluate
         results_df = pd.DataFrame(predictions_table)
         results_df.to_csv(output_dir / "metrics.csv", index=False)
+        
+        # Clear GPU cache to prevent OOM errors
+        if device.startswith("cuda"):
+            torch.cuda.empty_cache()
+        import gc
+        gc.collect()
 
     metrics = {}
     metrics["max_mem"] = max_mem
