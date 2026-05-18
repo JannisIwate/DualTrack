@@ -19,7 +19,7 @@ model:
 
 data: 
   dataset: tus-rec-25-val
-  num_workers: 8
+  num_workers: 0
   global_encoder_preprocessing_kw:  
     in_channels: 1
     mean: [0] 
@@ -50,7 +50,7 @@ logger_kw:
   wandb_project: dualtrack
   log_level: 20 # 10 for debug
 evaluator_kw:   
-  include_images: true
+  include_images: false
 
 debug: false
 resume: true

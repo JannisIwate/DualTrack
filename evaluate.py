@@ -1,5 +1,13 @@
 import argparse
 from pathlib import Path
+import os
+
+# ============================================================================
+# Proposed by Copilot: Configure PyTorch CUDA memory management to reduce
+# fragmentation. This is particularly important for long-running evaluation
+# loops to prevent OOM errors with progressive memory accumulation.
+# ============================================================================
+os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
 
 from omegaconf import OmegaConf
 import wandb

@@ -22,9 +22,6 @@ train:
   weight_decay: 0.0
   val_every: 10
 
-test_cfg:
-  empty_cache_every_n_batches: 1
-
 seed: 0
 device: cuda
 use_amp: true

@@ -99,6 +99,22 @@ def get_ddf_metrics(
     relative_global_err = ((((pred_global_ddf - gt_global_ddf) ** 2).sum(1) ** 0.5) / (((gt_global_ddf) ** 2).sum(1) ** 0.5)).mean(-1)
     metrics["relative_global_err_pct"] = relative_global_err.mean().item()
 
+    # ========================================================================
+    # Proposed by Copilot: Explicitly delete large temporary tensors to free
+    # memory immediately. DDF computation creates large intermediate tensors
+    # that should not persist after metrics are extracted.
+    # ========================================================================
+    # del pred_global_ddf, gt_global_ddf, pred_local_ddf, gt_local_ddf
+    # del global_err, local_err, relative_global_err
+    # del pred_tracking_glob, gt_tracking_glob, pred_tracking_loc, gt_tracking_local
+    # del calibration_matrix, points_list
+    
+    # Explicitly trigger garbage collection and CUDA cache clear
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return metrics
 
 

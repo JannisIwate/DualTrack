@@ -7,6 +7,7 @@ configs/model
 DualTrack_auxiliary/training_data_*
 DualTrack_auxiliary/validation_data_*
 DualTrack_auxiliary/data_*
+DualTrack_auxiliary/tusrec25_val_data/
 
 logs
 network-data
@@ -19,8 +20,10 @@ pyrightconfig.json
 scratch*
 LOG.md
 experiments/
+experiment/
 local/
 *.h5
+*.zip
 .slurm_logs
 .slurm
 .submitit
