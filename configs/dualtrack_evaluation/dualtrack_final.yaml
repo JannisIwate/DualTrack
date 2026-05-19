@@ -1,5 +1,7 @@
 model: 
   name: dualtrack_tus_rec_2024
+  # ATTEMPTED FIX by Copilot (reverted):
+  # checkpoint: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24.pt
 
 data: 
   dataset: tus-rec-25-val

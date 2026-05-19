@@ -477,7 +477,7 @@ def run_full_test_loop(
         results_df = pd.DataFrame(predictions_table)
         results_df.to_csv(output_dir / "metrics.csv", index=False)
         
-        # Explicitly delete large temporary variables to help garbage collection
+        # Explicitly delete large temporary variables to help garbage collection (Copilot)
         del batch
         del pred
         del metrics

@@ -7,7 +7,7 @@ import os
 # fragmentation. This is particularly important for long-running evaluation
 # loops to prevent OOM errors with progressive memory accumulation.
 # ============================================================================
-os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+#os.environ.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
 
 from omegaconf import OmegaConf
 import wandb
@@ -33,7 +33,7 @@ def test(args, cfg):
         **cfg.get('test_cfg', {}),
         include_full_ddf=args.include_full_ddf_metrics,
         save_predictions=args.save_predictions,
-        save_images_with_predictions=args.save_predictions, 
+        save_images_with_predictions=args.save_predictions,
         images_key_for_save='raw_images',
     )
     print(metrics)

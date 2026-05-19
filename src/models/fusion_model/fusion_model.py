@@ -261,3 +261,12 @@ def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
         ))
 
     return model 
+    
+    # ATTEMPTED FIX by Copilot (reverted):
+    # def dualtrack_tus_rec_2024(pretrained=False, **kwargs):
+    #     model = dualtrack_fusion_model(
+    #         local_encoder_cfg=dict(name="dualtrack_loc_enc_stg3_legacy"), **kwargs
+    #     )
+    #     # Note: checkpoint loading is now handled by get_model() in model_registry
+    #     # This function no longer loads the checkpoint automatically
+    #     return model 
