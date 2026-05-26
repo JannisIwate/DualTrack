@@ -1,25 +1,29 @@
-from gtsam import Rot3, Point3, Pose3
+import gtsam
 import numpy as np
+import torch
 
 
 def pose3_to_mat4(pose):
+
     R = pose.rotation().matrix()
     t = pose.translation()
 
     T = np.eye(4)
     T[:3, :3] = R
-    T[:3, 3] = [t.x(), t.y()]
+    T[:3, 3] = t
 
     return T
 
 
 def mat4_to_pose3(T):
+
     T = T.cpu().numpy()
 
-    R = Rot3(T[:3, :3])
-    t = Point3(*T[:3, 3])
+    R = gtsam.Rot3(T[:3, :3])
+    t = gtsam.Point3(*T[:3, 3])
 
-    return Pose3(R, t)
+    return gtsam.Pose3(R, t)
+
 
 def compute_inbetween_transforms(acc_transforms):
 
@@ -39,3 +43,17 @@ def compute_inbetween_transforms(acc_transforms):
         inbetween[i] = delta_T
 
     return inbetween
+
+
+def gtsam_values_to_torch(values: gtsam.Values, dtype=torch.float32):
+
+    data_list = []
+
+    for key in values.keys():
+
+        val = values.atPose3(key)
+        matrix = pose3_to_mat4(val)
+        data_list.append(matrix)
+
+    stacked = np.stack(data_list, axis=0)
+    return torch.tensor(stacked, dtype=dtype)

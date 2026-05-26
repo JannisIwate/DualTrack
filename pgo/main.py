@@ -36,14 +36,14 @@ with h5py.File(INPUT_FILE, "r") as f:
     print(np.abs(reconstructed - pred_acc[10]).max())
 
 # remove unnecessary first and last transform
-inbetween_transforms_pred = pred_inbetween_torch[1:-1]
-acc_transforms_pred = pred_acc_torch[1:-1]
-inbetween_transforms_gt = gt_inbetween_torch[1:-1]
-acc_transforms_gt = gt_acc_torch[1:-1]
+pred_inbetween_torch = pred_inbetween_torch[1:-1]
+pred_acc_torch = pred_acc_torch[1:-1]
+gt_inbetween_torch = gt_inbetween_torch[1:-1]
+gt_acc_torch = gt_acc_torch[1:-1]
 
 ## build graphs
-graph_pred, initial_pred, optimized_pred = build_graph(acc_transforms_pred, inbetween_transforms_pred, True)
-graph_gt, initial_gt, optimized_gt = build_graph(acc_transforms_gt, inbetween_transforms_gt, True)
+graph_pred, initial_pred, optimized_pred = build_graph(pred_acc_torch, pred_inbetween_torch, True)
+graph_gt, initial_gt, optimized_gt = build_graph(gt_acc_torch, gt_inbetween_torch, True)
 
 ## plot and evaluate
 # plot marginals
@@ -54,9 +54,9 @@ graph_gt, initial_gt, optimized_gt = build_graph(acc_transforms_gt, inbetween_tr
 #                   labels=["Initial estimated", "GT"],
 #                   colors=["blue", "red"])
 
-plot_trajectories([extract_positions(initial_gt, pose_type="gtsam_values"), extract_positions(optimized_gt, pose_type="gtsam_values")],
-                  labels=["GT initial", "GT acc"],
-                  colors=["blue", "red"])
+# plot_trajectories([extract_positions(initial_gt, pose_type="gtsam_values"), extract_positions(optimized_gt, pose_type="gtsam_values")],
+#                   labels=["GT initial", "GT acc"],
+#                   colors=["blue", "red"])
 
 # error metrics
 error_pred_initial = graph_pred.error(initial_pred)
@@ -66,15 +66,15 @@ error_gt_optimized = graph_gt.error(optimized_gt)
 
 print("\n\n==== Errors ====\n")
 
-print(f"Initial error pred: {error_pred_initial}\n")
-print(f"Optimized error pred: {error_pred_optimized}\n")
-print(f"Initial error gt: {error_gt_initial}\n")
-print(f"Optimized error gt: {error_gt_optimized}\n")
+print(f"Initial graph error pred: {error_pred_initial}\n")
+print(f"Optimized graph error pred: {error_pred_optimized}\n")
+print(f"Initial graph error gt: {error_gt_initial}\n")
+print(f"Optimized graph error gt: {error_gt_optimized}\n")
 
-avg_t_err, avg_r_err = avg_trajectory_error(acc_transforms_gt, acc_transforms_pred)
-print(f"Average translation error acc\n: {avg_t_err}\n")
-print(f"Average rotation error acc\n: {avg_r_err}\n")
+avg_t_err, avg_r_err = avg_trajectory_error(gt_inbetween_torch, pred_inbetween_torch)
+print(f"Average translation error inbetween (gt and initial pred)\n: {avg_t_err}\n")
+print(f"Average rotation error inbetween (gt and initial pred)\n: {avg_r_err}\n")
 
-avg_t_err, avg_r_err = avg_trajectory_error(inbetween_transforms_gt, inbetween_transforms_pred)
-print(f"Average translation error inbetween\n: {avg_t_err}\n")
-print(f"Average rotation error inbetween\n: {avg_r_err}\n")
+avg_t_err, avg_r_err = avg_trajectory_error(gt_inbetween_torch, gtsam_values_to_torch(optimized_pred))
+print(f"Average translation error inbetween (gt and optimized pred)\n: {avg_t_err}\n")
+print(f"Average rotation error inbetween (gt and optimized pred)\n: {avg_r_err}\n")

@@ -247,7 +247,7 @@ def dualtrack_fusion_model(
 
 
 @register_model
-def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
+def dualtrack_tus_rec_2024(pretrained=False, **kwargs):
     model = dualtrack_fusion_model(
         local_encoder_cfg=dict(name="dualtrack_loc_enc_stg3_legacy"), **kwargs
     )
