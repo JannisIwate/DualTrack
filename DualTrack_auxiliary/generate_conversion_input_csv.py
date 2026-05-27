@@ -1,60 +1,110 @@
+from argparse import ArgumentParser
 import os
 import csv
 
-# TODO path handling und CSV writing schoen machen
 
-# -----------------------------------------------------------------------------
-# CONFIG
-# -----------------------------------------------------------------------------
+def main():
+    p = ArgumentParser()
 
-data_split = True
+    p.add_argument(
+        "--data_split",
+        action="store_true",
+        help="Set if frames and transforms are stored separately.",
+    )
 
-# -----------------------------------------------------------------------------
-# DATA COLLECTION
-# -----------------------------------------------------------------------------
+    p.add_argument(
+        "--output",
+        "-o",
+        required=True,
+        help="Path to the output dir.",
+    )
 
-data = []
-sweep_id_counter = 0
+    # Argument for input_tforms (only valid with --data_split)
+    p.add_argument(
+        "--input_tforms",
+        "-it",
+        help="Transforms base path (required when --data_split is set).",
+    )
 
-if data_split:
-    frames_base_path = r"/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25/frames"
-    tforms_base_path = r"/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25/transfs"
-    output_csv = r"/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25/conversion_sweeps.csv"
+    # Arguments for when --data_split is set
+    p.add_argument(
+        "--input_frames",
+        "-if",
+        help="Frames base path (required when --data_split is set).",
+    )
 
-    # loop through top-level folders
-    for top_folder in os.listdir(frames_base_path):
+    # Arguments for when --data_split is NOT set
+    p.add_argument(
+        "--input",
+        "-i",
+        help="Base path containing combined .h5 files (required when --data_split is NOT set).",
+    )
 
-        frames_top_path = os.path.join(frames_base_path, top_folder)
-        tforms_top_path = os.path.join(tforms_base_path, top_folder)
+    args = p.parse_args()
 
-        if not os.path.isdir(frames_top_path):
-            continue
+    # Validate argument combinations
+    if args.data_split:
+        if not args.input_frames or not args.input_tforms:
+            raise ValueError(
+                "When using --data_split, both --input_frames and --input_tforms are required."
+            )
+    else:
+        if args.input_frames or args.input_tforms:
+            raise ValueError(
+                "--input_frames/_tforms can only be used with --data_split."
+            )
 
-        # loop through files
-        for file in os.listdir(frames_top_path):
+    output_csv = os.path.abspath(args.output) + "/conversion_sweeps.csv"
 
-            if not file.endswith(".h5"):
+    data = []
+    sweep_id_counter = 0
+
+    # -------------------------------------------------------------------------
+    # SPLIT DATASET (frames + tforms separately)
+    # -------------------------------------------------------------------------
+
+    if args.data_split:
+
+        frames_base_path = os.path.abspath(args.input_frames)
+        tforms_base_path = os.path.abspath(args.input_tforms)
+
+        # loop through top-level folders
+        for top_folder in os.listdir(frames_base_path):
+
+            frames_top_path = os.path.join(frames_base_path, top_folder)
+            tforms_top_path = os.path.join(tforms_base_path, top_folder)
+
+            if not os.path.isdir(frames_top_path):
                 continue
 
-            frames_file_path = os.path.join(frames_top_path, file)
-            tforms_file_path = os.path.join(tforms_top_path, file)
+            # loop through files
+            for file in os.listdir(frames_top_path):
 
-            data.append({
-                "sweep_id": f"sweep_{sweep_id_counter:05d}",
-                "raw_tus_rec_frames_path": frames_file_path,
-                "raw_tus_rec_tforms_path": tforms_file_path,
-                "split": "train"
-            })
+                if not file.endswith(".h5"):
+                    continue
 
-            sweep_id_counter += 1
+                frames_file_path = os.path.join(frames_top_path, file)
+                tforms_file_path = os.path.join(tforms_top_path, file)
 
-else:
-    base_paths = [r"/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/training_data_tusrec24/train_part1",
-                  r"/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/training_data_tusrec24/train_part2"]
-    output_csv = r"/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/training_data_tusrec24/conversion_sweeps.csv"
+                data.append(
+                    {
+                        "sweep_id": f"sweep_{sweep_id_counter:05d}",
+                        "raw_tus_rec_frames_path": frames_file_path,
+                        "raw_tus_rec_tforms_path": tforms_file_path,
+                        "split": "train",
+                    }
+                )
 
-    # combined frames+tforms in same h5 file
-    for base_path in base_paths:
+                sweep_id_counter += 1
+
+    # -------------------------------------------------------------------------
+    # COMBINED DATASET (frames + tforms in same file)
+    # -------------------------------------------------------------------------
+
+    else:
+
+        base_path = os.path.abspath(args.input)
+
         for top_folder in os.listdir(base_path):
 
             top_folder_path = os.path.join(base_path, top_folder)
@@ -69,39 +119,46 @@ else:
 
                 file_path = os.path.join(top_folder_path, file)
 
-                data.append({
-                    "sweep_id": f"sweep_{sweep_id_counter:05d}",
-                    "raw_tus_rec_sweep_path": file_path,
-                    "split": "train"
-                })
+                data.append(
+                    {
+                        "sweep_id": f"sweep_{sweep_id_counter:05d}",
+                        "raw_tus_rec_sweep_path": file_path,
+                        "split": "train",
+                    }
+                )
+
                 sweep_id_counter += 1
 
-# -----------------------------------------------------------------------------
-# WRITE CSV
-# -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # WRITE CSV
+    # -------------------------------------------------------------------------
 
-with open(output_csv, "w", newline="") as csvfile:
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
 
-    if data_split:
-        fieldnames = [
-            "index",
-            "sweep_id",
-            "raw_tus_rec_frames_path",
-            "raw_tus_rec_tforms_path",
-            "split"
-        ]
-    else:
-        fieldnames = [
-            "index",
-            "sweep_id",
-            "raw_tus_rec_sweep_path",
-            "split"
-        ]
+    with open(output_csv, "w", newline="") as csvfile:
 
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        if args.data_split:
+            fieldnames = [
+                "sweep_id",
+                "raw_tus_rec_frames_path",
+                "raw_tus_rec_tforms_path",
+                "split",
+            ]
+        else:
+            fieldnames = [
+                "sweep_id",
+                "raw_tus_rec_sweep_path",
+                "split",
+            ]
 
-    writer.writeheader()
-    writer.writerows(data)
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-print(f"CSV created: {output_csv}")
-print(f"Total sweeps: {len(data)}")
+        writer.writeheader()
+        writer.writerows(data)
+
+    print(f"CSV created: {output_csv}")
+    print(f"Total sweeps: {len(data)}")
+
+
+if __name__ == "__main__":
+    main()
