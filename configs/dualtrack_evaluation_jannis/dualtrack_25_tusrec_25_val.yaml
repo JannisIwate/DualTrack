@@ -32,7 +32,7 @@ data:
   sequence_length_train: null
   transform_kwargs:
     transform_version: fusion
-    include_raw_images: true 
+    include_raw_images: true # has to be included if --save_predictions is set
     random_reverse_sweep: true
     random_subsample_sequence: true
     random_horizontal_flip: true
