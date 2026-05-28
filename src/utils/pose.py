@@ -168,6 +168,7 @@ def get_drift_rate(gt_tracking, pred_tracking):
 def get_drift_metrics(gt_tracking, pred_tracking):
     drift_ = get_drift(gt_tracking, pred_tracking)
     drift_rate = get_drift_rate(gt_tracking, pred_tracking)
+    drift_rate = drift_rate[np.isfinite(drift_rate)] # filter inf values (drift for first frame is zero, so drift rate is inf)
     metrics = {}
     metrics["final_drift_rate"] = drift_rate[-1]
     metrics["avg_drift_rate"] = drift_rate[~np.isnan(drift_rate)].mean()

@@ -503,6 +503,8 @@ def run_full_test_loop(
         import gc
         gc.collect()
 
+        #break
+
     metrics = {}
     metrics["max_mem"] = max_mem
 
