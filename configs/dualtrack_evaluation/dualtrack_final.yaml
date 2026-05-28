@@ -1,15 +1,13 @@
 model: 
   name: dualtrack_tus_rec_2024
-  # ATTEMPTED FIX by Copilot (reverted):
-  # checkpoint: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24.pt
 
 data: 
-  dataset: tus-rec-25-val
-  num_workers: 0
+  dataset: tus-rec-val
+  num_workers: 1
   global_encoder_preprocessing_kw:  
     in_channels: 1
-    mean: [0]
-    std: [1]
+    mean: [0.5]
+    std: [0.25]
     resize_to: [224, 224]
   use_augmentations: false
   load_preprocessed_images_from_disk: false

@@ -1,19 +1,14 @@
 model: 
   name: dualtrack_tus_rec_2024
-  
-  # make model load custom checkpoint
-  checkpoint: configs/model/dualtrack_tusrec24.pt
-  load_kw:
-    strict: false
-    handle_size_mismatch: true
+  checkpoint: configs/model/dualtrack_tusrec24.pt # load 24 model, equivalent to DUALTRACK_FINAL_CHECKPOINT_PATH in repo
 
 data: 
   dataset: tus-rec-24-val
-  num_workers: 0
+  num_workers: 1
   global_encoder_preprocessing_kw:  
     in_channels: 1
-    mean: [0]
-    std: [1]
+    mean: [0.5]
+    std: [0.25]
     resize_to: [224, 224]
   use_augmentations: false
   load_preprocessed_images_from_disk: false
