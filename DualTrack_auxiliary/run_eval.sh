@@ -30,7 +30,7 @@ cd "$WORKDIR" || exit 1
 ### DualTrack24
 
 ## test
-python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test --nr_scans 3 --overwrite_log_dir
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test --nr_scans 3 --overwrite_log_dir
 
 
 ## experiment 1
@@ -58,8 +58,24 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml -
 # transformer: default (local_encoder_transform)
 # extras: filtering of first null drift value, deletion of var values in loop after use
 
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_24_tusrec_24_val.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run
 # -> performance from repo/paper recreated (avg gpe of 4.9mm) -> filtering does not have an effect, deletion does
 # -> ~3.5s per scan (0.83s inference time in metrics)
+
+
+## experiment 3
+
+# setup: 10gb ram, 24gb gpu
+# model: dualtrack_tusrec24.pt
+# data: tusrec25 val (6 scans)
+# config: dualtrack_final_25_data.yaml (dualtrack_final.yaml + adequate embedding sizes)
+# transformer: default (local_encoder_transform)
+# extras: filtering of first null drift value, deletion of var values in loop after use
+
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final_25_data.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run_25_data --overwrite_log_dir
+
+# -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_25_data
+# -> extremely bad results (avg fdr of 488.77%, avg gpe of 56.53mm)
+# -> 9.9s per scan

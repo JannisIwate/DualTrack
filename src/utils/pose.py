@@ -91,23 +91,19 @@ def get_ddf_metrics(
     global_err = (((pred_global_ddf - gt_global_ddf) ** 2).sum(1) ** 0.5).mean(-1)
     local_err = (((pred_local_ddf - gt_local_ddf) ** 2).sum(1) ** 0.5).mean(-1)
 
-    metrics["avg_global_displacement_error"] = global_err.mean().item()
-    metrics["max_global_dislacement_error"] = global_err.max().item()
-    metrics["avg_local_displacement_error"] = local_err.mean().item()
-    metrics["max_local_displacement_error"] = local_err.max().item()
+    global_err_max = global_err.max().item()
+    global_err_mean = global_err.mean().item()
+    local_err_max = local_err.max().item()
+    local_err_mean = local_err.mean().item()
+
+    metrics["avg_global_displacement_error"] = global_err_mean
+    metrics["max_global_dislacement_error"] = global_err_max
+    metrics["avg_local_displacement_error"] = local_err_mean
+    metrics["max_local_displacement_error"] = local_err_max
+    #metrics["tusrec_final_score"] = get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max)
 
     relative_global_err = ((((pred_global_ddf - gt_global_ddf) ** 2).sum(1) ** 0.5) / (((gt_global_ddf) ** 2).sum(1) ** 0.5)).mean(-1)
     metrics["relative_global_err_pct"] = relative_global_err.mean().item()
-
-    # ========================================================================
-    # Proposed by Copilot: Explicitly delete large temporary tensors to free
-    # memory immediately. DDF computation creates large intermediate tensors
-    # that should not persist after metrics are extracted.
-    # ========================================================================
-    # del pred_global_ddf, gt_global_ddf, pred_local_ddf, gt_local_ddf
-    # del global_err, local_err, relative_global_err
-    # del pred_tracking_glob, gt_tracking_glob, pred_tracking_loc, gt_tracking_local
-    # del calibration_matrix, points_list
     
     # Explicitly trigger garbage collection and CUDA cache clear
     import gc
@@ -116,6 +112,20 @@ def get_ddf_metrics(
         torch.cuda.empty_cache()
 
     return metrics
+
+
+# def get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max):
+    
+#     # GPE* = (GPE – largest_GPE) / (smallest_GPE - largest_GPE)
+#     # GLE* = (GLE – largest_GLE) / (smallest_GLE - largest_GLE)
+#     # LPE* = (LPE – largest_LPE) / (smallest_LPE - largest_LPE)
+#     # LLE* = (LLE – largest_LLE) / (smallest_LLE - largest_LLE)
+
+#     gpe_normalized = (global_err_mean - global_err_max) / (0 - global_err_max)
+#     gle_normal
+
+
+#     return global_err_mean + global_err_max + local_err_mean + local_err_max
 
 
 def compute_mean_average_errors(gt_tracking, pred_tracking):

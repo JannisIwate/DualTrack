@@ -472,6 +472,8 @@ def run_full_test_loop(
         total_time = time.time() - start_time
         metrics["total_time"] = total_time
 
+        #metrics["tusrec_score"] = get_tusrec_score(metrics)
+
         # Record metrics
         predictions_table_row = {
             "sweep_id": batch["sweep_id"][0],
