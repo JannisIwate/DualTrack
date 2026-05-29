@@ -1,0 +1,15 @@
+Loop Closure:
+- detect already seen image/already visited location
+- update map/poses accordingly when successful loop closure has been performed
+- Methods:
+	Graph-based
+	Bag-of-Words: Detect similar images via its features points and descriptors, assign every image to a cluster in a set of words, so feature vector classes (tree structure for 	efficient searching)
+	Similarity Computation: use visual similarity between images via TF and IDF, similarity via L1-norm of feature sets of images (BoW representation)
+
+SLAM:
+- simultaneous localization and mapping
+- frontend (features and loop closure) and backend (map estimation, graph)
+-  Visual SLAM, LIDAR SLAM and Multi-Sensor SLAM
+- Challenges: accumulating localization error (-> pose graphs and  bundle adjustment), localization fails (-> sensor fusing with Kalman filter, Bag of Features or Bag of Visual Words)
+
+loop-in-the-sim: 

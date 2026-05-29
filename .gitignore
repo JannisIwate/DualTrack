@@ -8,6 +8,7 @@ DualTrack_auxiliary/training_data_*
 DualTrack_auxiliary/validation_data_*
 DualTrack_auxiliary/data_*
 DualTrack_auxiliary/tusrec25_val_data/
+presentation_images
 
 logs
 network-data

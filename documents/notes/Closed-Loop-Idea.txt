@@ -1,0 +1,4 @@
+- Loop Closure is a research gap in freehand 3d US reconstruction: Try optimizing/correcting trajectory by recognizing already seen frames and using data from that to correct 
+- no real GT, benchmark closed loop data set -> would have to fake repetitions by e.g. mirroring scans or cutting and mixing them up
+- which model to use and alter: maybe freehand model, as training and inference must not take too long, try to look for other easy-and-quick-to-handle models
+- actual LC: Try different types of methods, use AI, math etc.

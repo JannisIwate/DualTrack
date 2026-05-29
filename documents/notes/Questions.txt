@@ -1,0 +1,9 @@
+- Which of the four papers mentioned seem promising?
+- What does the code actually do?
+- Why did Prima change the code?
+- Non-rigid? It does make sense -> apparently it is not that much of a problem
+- What to improve? Loss function? Model? Data? Feeding? -> try finding papers which improved something similar as in the papers on the repo
+- How are 3d images actually created? -> lib which takes 2d images and reconstructs them using raw images and position data (either from sensor or estimated by AI
+) or AI which creates images directly
+- Direction of research, general vs breast cancer specifically, base model vs state of the art, where in reconstruction process is AI actually used?
+- Meetings with protocols/notes or continuous communication via MS Teams? -> both

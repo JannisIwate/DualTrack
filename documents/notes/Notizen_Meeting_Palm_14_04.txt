@@ -1,0 +1,32 @@
+- Einfach Modell verbessern ist nicht genug
+- Prima nach Einseiter (Was? Welche Daten? Welches Modell? Ziel? Wie?) fragen, muss in einer Woche da sein, selber auch nach Ideen suchen und Syahid fragen
+- Ideen: Wie geht man mit Bildredundanz um? Wie mit großen Organen, die nicht in einen Scan passen?
+- Noch besser einlesen:
+Bildregistrierung:
+
+- Dualtrack:
+Konkreter Aufbau der Daten: US-Scans mit n Bildern und jeweils 6DoF Matrix Ti (4x4, Rotationsmatrix + Translationsvektor) und relativer Transformation Tj<-i (==Ti-1*Tj) zum nächsten Bild, dargestellt als pji, Modell schätzt diese Transformationen, Rückführung auf Koordinaten und Winkel mittels Multiplikation an T0 (Identitätsmatrix, Bilder starten bei i=1)
+
+Konkreter Aufbau des Modells: Local und Global Encoder aus jeweils Backbone und Transformers
+
+Ist Input n immer gleich lang? Nein
+
+Wie werden Daten der vorhergegangenen Bilder benutzt? Pretraining: Local Encoder bekommt pro Epoche 16 zufällige, zusammenhängende Bilder pro Scan, Global Encoder bekommt zufällige, nicht-zusammenhängende Bildreihe aus jedem Scan (Anzahl wird nicht genannt), Fusion-Training: Local und Global Encoder werden zusammen trainiert, jeweils mit allen Bildern pro Scan pro Epoche
+
+Wie werden Koordinaten und Bilder zum 3d-Objekt? -> Bilder müssen richtig in die Ebene gelegt werden
+
+Wie lange dauert das Fine-Tuning von DualTrack? -> Ausprobieren
+
+Fehlermaße? FDR (Euklidischer Abstand zwischen vorhergesagter und echter Translation in letztem Frame), Maximum Drift (max. Abstand zwischen Translationen), Point Displacement Error (durchschnittlicher Transformationsfehler über fünf Punkte (Ecken und Mitte) eines Frames, also die Differenz der vorhergesagten Transformation und der echten für diese fünf Punkte), Local Point Error (durchschnittlicher PDE von zwei aufeinanderfolgenden Frames), GPE (durchschnittlicher PDE über Differenz von echter Position und errechneter unter Anwendung von allen bisherigen Transformationen pro Frame)
+
+Wie werden Bilder in den Koordinatenraum gelegt? -> 6DoF-Koordinaten, Nullpunkt des Bildkoordinatensystems als Referenzpunkt für Rotation und FDR
+
+
+freehand:
+Konkreter Aufbau der Daten: 
+Konkreter Aufbau des Modells: Zwei Auxiliary Task, einer für Anatomie-, einer für Protokoll-Klassifikation, sollen Main Task (Pose Estimation) helfen, werden gleichzeitig trainiert, Multi-Task-Konzept
+Ist Input immer gleich lang? Nein, 36 bis 430 Frames pro Scan
+Wie werden Daten der vorhergegangenen Bilder benutzt? 
+Wie werden Koordinaten und Bilder zum 3d-Objekt?
+Fehlermaße? eframe (euklidischer Abstand zwischen Eckpunkten eines Frames), eacc (durchschnittlicher Abstand von allen Pixeln), edice (Volumenfehler) und edrift (FD)
+Wie werden Bilder in den Koordinatenraum gelegt?
