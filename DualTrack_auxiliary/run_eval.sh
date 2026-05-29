@@ -30,7 +30,7 @@ cd "$WORKDIR" || exit 1
 ### DualTrack24
 
 ## test
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test --nr_scans 3
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test --nr_scans 3 --overwrite_log_dir
 
 
 ## experiment 1

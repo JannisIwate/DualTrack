@@ -60,6 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--include_full_ddf_metrics', action='store_true')
     parser.add_argument('--save_predictions', action='store_true')
     parser.add_argument('--nr_scans', type=int, default=None)
+    parser.add_argument('--overwrite_log_dir', action='store_true')
 
     args = parser.parse_args()
 
@@ -72,12 +73,16 @@ if __name__ == "__main__":
             args.config = join(args.train_dir, 'config_resolved.yaml')
 
     config = OmegaConf.load(args.config)
-    if args.log_dir: 
+    if args.log_dir:
+        if Path(args.log_dir).exists():
+            if os.listdir(args.log_dir) and not args.overwrite_log_dir:
+                raise ValueError(f"Log directory {args.log_dir} already exists and is not empty. Set --overwrite_log_dir to overwrite.")
         config.log_dir = args.log_dir
     if args.checkpoint: 
         config.model.checkpoint = args.checkpoint
     if args.nr_scans is not None:
         config.nr_scans = args.nr_scans
+        
 
     test(args, config)
     
