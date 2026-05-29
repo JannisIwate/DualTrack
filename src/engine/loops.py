@@ -19,6 +19,7 @@ from src.utils.pose import get_global_and_relative_pred_trackings_from_vectors
 from torch.nn.parallel import DistributedDataParallel
 from typing import Protocol, runtime_checkable
 from torch import distributed as dist
+from itertools import islice
 
 
 @runtime_checkable
@@ -351,6 +352,7 @@ def run_full_test_loop(
     save_predictions: bool = False,
     save_images_with_predictions: bool = False,
     images_key_for_save="images",
+    nr_scans=None,
     **evaluator_kw,
 ) -> pd.DataFrame:
     """Run a full test loop saving predictions, metrics and visualizations.
@@ -364,6 +366,7 @@ def run_full_test_loop(
         use_bfloat: Whether to use bfloat16 precision
         use_amp: Whether to use automatic mixed precision
         sweep_ids: Optional list of sweep IDs to filter evaluation on
+        nr_scans: Number of scans to evaluate
         **evaluator_kw: Additional kwargs passed to TrackingEstimationEvaluator
 
     Returns:
@@ -389,7 +392,13 @@ def run_full_test_loop(
 
     start_time = time.time()
 
-    for batch in tqdm(loader, desc="Evaluating"):
+    # load specified number of scans
+    iterator = islice(loader, nr_scans) if nr_scans is not None else loader
+    total = nr_scans if nr_scans is not None else len(loader)
+
+    print(f"Evaluating {total} of {len(loader)} scans...")
+
+    for batch in tqdm(iterator, desc="Evaluating", total=total):
 
         # Filter by sweep IDs if specified
         if sweep_ids is not None:
@@ -473,7 +482,7 @@ def run_full_test_loop(
 
         # Save metrics at each sweep so it updates as we evaluate
         results_df = pd.DataFrame(predictions_table)
-        #results_df.to_csv(output_dir / "metrics.csv", index=False)
+        results_df.to_csv(output_dir / "metrics.csv", index=False)
 
         start_time = time.time()
 
@@ -482,6 +491,7 @@ def run_full_test_loop(
 
     # Save average metrics
     avg_metrics = results_df.drop(["sweep_id"], axis="columns").mean()
+    avg_metrics = pd.concat([pd.Series({"nr_sweeps": total}), avg_metrics])
     avg_metrics.to_string(open(output_dir / "avg_metrics.txt", "w"))
     print("Average metrics:", avg_metrics)
     metrics.update(avg_metrics.to_dict())

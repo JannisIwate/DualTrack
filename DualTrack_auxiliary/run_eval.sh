@@ -8,6 +8,9 @@ cd "$WORKDIR" || exit 1
 
 ### DualTrack25
 
+## test
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/test --save_predictions
+
 ## experiment 1
 
 # setup: 10gb ram, 24gb gpu
@@ -21,13 +24,13 @@ cd "$WORKDIR" || exit 1
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run
 # -> very bad performance (avg fdr of 73%, avg gpe of 9.1mm), in contrast to paper/repo
-# -> ~12s per scan (stated sub-second in paper/repo, 2.4s inference time in metrics)
+# -> 11.29s per scan (stated sub-second in paper/repo, 2.56s inference time in metrics) -> batch loading takes very long
 
 
 ### DualTrack24
 
 ## test
-python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test --nr_scans 3
 
 
 ## experiment 1
@@ -43,7 +46,7 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml -
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_original
 # -> performance from repo/paper recreated (avg gpe of 4.9mm)
-# -> ~3s per scan (0.8s inference time in metrics)
+# -> 2.79s per scan (0.79s inference time in metrics)
 
 
 ## experiment 2
@@ -59,4 +62,4 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml -
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run
 # -> performance from repo/paper recreated (avg gpe of 4.9mm) -> filtering does not have an effect, deletion does
-# -> ~3.5s per scan (0.8s inference time in metrics)
+# -> ~3.5s per scan (0.83s inference time in metrics)
