@@ -456,14 +456,6 @@ def run_full_test_loop(
         for name, figure in figures.items():
             figure.savefig(str(sweep_dir / f"{name}.png"))
             plt.close(figure)
-        
-        # Aggressively clear matplotlib state to free memory
-        # plt.close('all')
-        # import matplotlib as mpl
-        # mpl.pyplot.show._needmain = False
-        # if hasattr(mpl.backends, 'backend'):
-        #     if hasattr(mpl.backends.backend, 'show'):
-        #         mpl.backends.backend.show._needmain = False
 
         # Record metrics
         predictions_table_row = {
@@ -476,34 +468,6 @@ def run_full_test_loop(
         # Save metrics at each sweep so it updates as we evaluate
         results_df = pd.DataFrame(predictions_table)
         results_df.to_csv(output_dir / "metrics.csv", index=False)
-        
-        # Explicitly delete large temporary variables to help garbage collection (Copilot)
-        del batch
-        del pred
-        del metrics
-        del figures
-        if 'images' in locals():
-            del images
-        if 'targets' in locals():
-            del targets
-        if 'spacing' in locals():
-            del spacing
-        if 'dimensions' in locals():
-            del dimensions
-        if 'pixel_to_image' in locals():
-            del pixel_to_image
-        if 'pred_tracking_sequence' in locals():
-            del pred_tracking_sequence
-        if 'gt_tracking_sequence' in locals():
-            del gt_tracking_sequence
-        
-        # Clear GPU cache to prevent OOM errors
-        if device.startswith("cuda"):
-            torch.cuda.empty_cache()
-        import gc
-        gc.collect()
-
-        #break
 
     metrics = {}
     metrics["max_mem"] = max_mem
