@@ -20,11 +20,15 @@ cd "$WORKDIR" || exit 1
 #python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run --save_predictions
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run
-# -> bad performance (avg fdr of 73%, avg gpe of 9.1mm), in contrast to paper/repo
+# -> very bad performance (avg fdr of 73%, avg gpe of 9.1mm), in contrast to paper/repo
 # -> ~12s per scan (stated sub-second in paper/repo, 2.4s inference time in metrics)
 
 
 ### DualTrack24
+
+## test
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test
+
 
 ## experiment 1
 

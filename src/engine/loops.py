@@ -387,7 +387,10 @@ def run_full_test_loop(
     predictions_table = []
     max_mem = 0
 
+    start_time = time.time()
+
     for batch in tqdm(loader, desc="Evaluating"):
+
         # Filter by sweep IDs if specified
         if sweep_ids is not None:
             if not list(
@@ -456,6 +459,9 @@ def run_full_test_loop(
         for name, figure in figures.items():
             figure.savefig(str(sweep_dir / f"{name}.png"))
             plt.close(figure)
+        
+        total_time = time.time() - start_time
+        metrics["total_time"] = total_time
 
         # Record metrics
         predictions_table_row = {
@@ -467,7 +473,9 @@ def run_full_test_loop(
 
         # Save metrics at each sweep so it updates as we evaluate
         results_df = pd.DataFrame(predictions_table)
-        results_df.to_csv(output_dir / "metrics.csv", index=False)
+        #results_df.to_csv(output_dir / "metrics.csv", index=False)
+
+        start_time = time.time()
 
     metrics = {}
     metrics["max_mem"] = max_mem
