@@ -75,7 +75,7 @@ def build_graph(abs_poses, rel_poses, optimize = True):
             )
         )
 
-    print(f"Graph: {graph.size()} factors, {N} poses")
+    # print(f"Graph: {graph.size()} factors, {N} poses")
 
     # optimize
     optimized = None

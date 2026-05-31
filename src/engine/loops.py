@@ -480,8 +480,6 @@ def run_full_test_loop(
         total_time = time.time() - start_time
         metrics["total_time"] = total_time
 
-        #metrics["tusrec_score"] = get_tusrec_score(metrics)
-
         # Record metrics
         predictions_table_row = {
             "sweep_id": batch["sweep_id"][0],
@@ -503,7 +501,7 @@ def run_full_test_loop(
     avg_metrics = results_df.drop(["sweep_id"], axis="columns").mean()
     avg_metrics = pd.concat([pd.Series({"nr_sweeps": total}), avg_metrics])
     avg_metrics.to_string(open(output_dir / "avg_metrics.txt", "w"))
-    print("Average metrics:", avg_metrics)
+    print("Average metrics:\n", avg_metrics)
     metrics.update(avg_metrics.to_dict())
     print(
         f"mem: {torch.cuda.max_memory_reserved() / 1e9:.2f}GB",

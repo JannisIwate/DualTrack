@@ -4,7 +4,6 @@
 WORKDIR="/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack"
 cd "$WORKDIR" || exit 1
 
-# ! empty log dir before reusing it !
 
 ### DualTrack25
 
@@ -20,11 +19,11 @@ cd "$WORKDIR" || exit 1
 # transformer: fusion
 # extras: filtering of first null drift value
 
-python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run --save_predictions --overwrite_log_dir
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run --save_predictions
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run
-# -> very bad fdr of 73%, avg gpe of 9.1mm (reported in repo)
-# -> 11.29s per scan (stated sub-second in paper/repo, 2.56s inference time in metrics) -> batch loading takes very long
+# -> very bad fdr of 73%, avg gpe of 9.1mm (reported in repo), final score of 0.64
+# -> 11.2s per scan (stated sub-second in paper/repo, 2.46s inference time in metrics) -> batch loading takes very long
 
 ## experiment 2
 
@@ -40,6 +39,22 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1    
 # -> fdr of 28.54%, avg gpe of 24.79mm (worse then DualTrack24?)
 # -> 3.56s/scan, 0.84s inference time in metrics
+
+# TODO: Try on bigger PC
+## experiment 3
+
+# setup: 10gb ram, 24gb gpu
+# model: dualtrack_ft_tus_rec_2025_v3_best.pt
+# data: tusrec25 val (six scans)
+# config: dualtrack_ft_tus_rec_2025_full.yaml
+# transformer: fusion
+# extras: filtering of first null drift value, filtering of first null drift value, include full ddf metrics
+
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run_full_ddf --save_predictions --include_full_ddf_metrics
+
+# -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run
+# -> 
+# -> 
 
 
 ### DualTrack24
