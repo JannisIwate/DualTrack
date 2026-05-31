@@ -61,17 +61,17 @@ graph_gt, initial_gt, optimized_gt = build_graph(gt_acc_torch, gt_inbetween_torc
 #                   colors=["blue", "red"])
 
 # error metrics
-error_pred_initial = graph_pred.error(initial_pred)
-error_pred_optimized = graph_pred.error(optimized_pred)
-error_gt_initial = graph_gt.error(initial_gt)
-error_gt_optimized = graph_gt.error(optimized_gt)
+# error_pred_initial = graph_pred.error(initial_pred)
+# error_pred_optimized = graph_pred.error(optimized_pred)
+# error_gt_initial = graph_gt.error(initial_gt)
+# error_gt_optimized = graph_gt.error(optimized_gt)
 
-print("\n\n==== Errors ====\n")
+# print("\n\n==== Errors ====\n")
 
-print(f"Initial graph error pred: {error_pred_initial}\n")
-print(f"Optimized graph error pred: {error_pred_optimized}\n")
-print(f"Initial graph error gt: {error_gt_initial}\n")
-print(f"Optimized graph error gt: {error_gt_optimized}\n")
+# print(f"Initial graph error pred: {error_pred_initial}\n")
+# print(f"Optimized graph error pred: {error_pred_optimized}\n")
+# print(f"Initial graph error gt: {error_gt_initial}\n")
+# print(f"Optimized graph error gt: {error_gt_optimized}\n")
 
 avg_t_ib_err, avg_r_ib_err = avg_trajectory_error(gt_inbetween_torch, pred_inbetween_torch)
 avg_t_acc_err, avg_r_acc_err = avg_trajectory_error(gt_acc_torch, pred_acc_torch)

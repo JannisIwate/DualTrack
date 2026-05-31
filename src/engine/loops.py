@@ -1,6 +1,7 @@
 import abc
 from dataclasses import dataclass, field
 import os
+import shutil
 from typing import Callable, Literal
 import h5py
 from matplotlib import pyplot as plt
@@ -353,6 +354,7 @@ def run_full_test_loop(
     save_images_with_predictions: bool = False,
     images_key_for_save="images",
     nr_scans=None,
+    overwrite_output_dir=False,
     **evaluator_kw,
 ) -> pd.DataFrame:
     """Run a full test loop saving predictions, metrics and visualizations.
@@ -373,6 +375,12 @@ def run_full_test_loop(
         DataFrame containing evaluation metrics for each sweep
     """
     # Setup output directories
+    if overwrite_output_dir and output_dir.exists():
+        for item in output_dir.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
     output_dir.mkdir(exist_ok=True, parents=True)
     (output_dir / "scans").mkdir(exist_ok=True, parents=True)
 

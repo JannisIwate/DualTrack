@@ -36,6 +36,7 @@ def test(args, cfg):
         save_images_with_predictions=args.save_predictions,
         images_key_for_save='raw_images',
         nr_scans=args.nr_scans,
+        overwrite_output_dir=args.overwrite_log_dir,
     )
     print(metrics)
     
@@ -73,6 +74,8 @@ if __name__ == "__main__":
             args.config = join(args.train_dir, 'config_resolved.yaml')
 
     config = OmegaConf.load(args.config)
+    if args.overwrite_log_dir:
+        config.log_dir = args.log_dir
     if args.log_dir:
         if Path(args.log_dir).exists():
             if os.listdir(args.log_dir) and not args.overwrite_log_dir:

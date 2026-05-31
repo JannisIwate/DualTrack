@@ -100,7 +100,7 @@ def get_ddf_metrics(
     metrics["max_global_dislacement_error"] = global_err_max
     metrics["avg_local_displacement_error"] = local_err_mean
     metrics["max_local_displacement_error"] = local_err_max
-    #metrics["tusrec_final_score"] = get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max)
+    metrics["tusrec_final_score"] = get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max)
 
     relative_global_err = ((((pred_global_ddf - gt_global_ddf) ** 2).sum(1) ** 0.5) / (((gt_global_ddf) ** 2).sum(1) ** 0.5)).mean(-1)
     metrics["relative_global_err_pct"] = relative_global_err.mean().item()
@@ -114,18 +114,19 @@ def get_ddf_metrics(
     return metrics
 
 
-# def get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max):
+def get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max):
     
-#     # GPE* = (GPE – largest_GPE) / (smallest_GPE - largest_GPE)
-#     # GLE* = (GLE – largest_GLE) / (smallest_GLE - largest_GLE)
-#     # LPE* = (LPE – largest_LPE) / (smallest_LPE - largest_LPE)
-#     # LLE* = (LLE – largest_LLE) / (smallest_LLE - largest_LLE)
+    # formula from https://github-pages.ucl.ac.uk/tus-rec-challenge/assessment.html#ranking-method:
+    # GPE* = (GPE – largest_GPE) / (smallest_GPE - largest_GPE)0.43782254
+    # GLE* = (GLE – largest_GLE) / (smallest_GLE - largest_GLE)0.85348664
+    # LPE* = (LPE – largest_LPE) / (smallest_LPE - largest_LPE)
+    # LLE* = (LLE – largest_LLE) / (smallest_LLE - largest_LLE)
+#final score tusrec25 val 25 five point 0.64565459
 
-#     gpe_normalized = (global_err_mean - global_err_max) / (0 - global_err_max)
-#     gle_normal
+    gpe_normalized = (global_err_mean - global_err_max) / (0 - global_err_max)
+    lpe_normalized = (local_err_mean - local_err_max) / (0 - local_err_max)
 
-
-#     return global_err_mean + global_err_max + local_err_mean + local_err_max
+    return 0.5 * gpe_normalized + 0.5 * lpe_normalized # instead of final score = 0.25GPE* + 0.25GLE* + 0.25LPE* + 0.25LLE* from website, as *PE and *LE are the same if displacement vectors are not exolicitely computed* (I assume so)
 
 
 def compute_mean_average_errors(gt_tracking, pred_tracking):
