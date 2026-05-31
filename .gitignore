@@ -20,8 +20,8 @@ pyrightconfig.json
 .vscode
 scratch*
 LOG.md
-experiments/
-experiment/
+scans
+
 local/
 *.h5
 *.zip
