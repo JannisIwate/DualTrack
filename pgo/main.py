@@ -10,14 +10,14 @@ sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack")
 from src.utils.pose import get_drift_metrics
 
 ## setup
-DATA_PATH = "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans/"
-INPUT_FILE = "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans/sweep_00000/export.h5"
+DATA_PATH_DT25_25 = "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans/"
+DATA_PATH_DT25_24 = "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1/scans/"
 
 metrics_original = []
 metrics_after_pgo = []
 
-for el in os.listdir(DATA_PATH):
-    sweep_path = os.path.join(DATA_PATH, el, "export.h5")
+for el in os.listdir(DATA_PATH_DT25_24):
+    sweep_path = os.path.join(DATA_PATH_DT25_24, el, "export.h5")
 
     ## load data
     with h5py.File(sweep_path, "r") as f:
