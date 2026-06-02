@@ -10,8 +10,8 @@ cd "$WORKDIR" || exit 1
 python pgo.py -i "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans/"
 
 
-## DualTrack 25
+## DualTrack 24
 
 # experiment 1
-#python pgo.py -i "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1/scans/"
+#python pgo.py -i "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/run_1/scans/"
 

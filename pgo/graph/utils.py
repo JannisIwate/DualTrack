@@ -1,6 +1,7 @@
 import gtsam
 import numpy as np
 import torch
+import pandas as pd
 
 
 def pose3_to_mat4(pose):
@@ -58,10 +59,23 @@ def gtsam_values_to_torch(values: gtsam.Values, dtype=torch.float32):
     stacked = np.stack(data_list, axis=0)
     return torch.tensor(stacked, dtype=dtype)
 
+
 def inbetween_to_accumulated(inbetween_transforms):
 
         accumulated = [np.eye(4)]
 
         for i in range(len(inbetween_transforms)):
+
             accumulated.append(accumulated[-1] @ inbetween_transforms[i])
         return np.stack(accumulated)
+
+
+def print_avg_metrics(metrics_list):
+
+        for metrics in metrics_list:
+
+            avg_metrics_df = pd.DataFrame(metrics).mean()
+
+            for key, value in avg_metrics_df.items():
+                print(f"  {key}: {value:.4f}")
+            print("\n")

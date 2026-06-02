@@ -97,7 +97,7 @@ def get_ddf_metrics(
     local_err_mean = local_err.mean().item()
 
     metrics["avg_global_displacement_error"] = global_err_mean
-    metrics["max_global_dislacement_error"] = global_err_max
+    metrics["max_global_displacement_error"] = global_err_max
     metrics["avg_local_displacement_error"] = local_err_mean
     metrics["max_local_displacement_error"] = local_err_max
     metrics["tusrec_final_score"] = get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max)

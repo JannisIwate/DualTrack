@@ -11,7 +11,7 @@ sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack")
 
 from graph.build_graph import *
 from graph.error_metrics import *
-from src.utils.pose import get_drift_metrics
+from src.utils.pose import get_drift_metrics, get_ddf_metrics
 
 
 def parse_arguments():
@@ -52,9 +52,12 @@ def main():
     
     data_path = args.input
     
-    metrics_original = []
-    metrics_after_pgo = []
-    
+    drift_metrics_original = []
+    drift_metrics_after_pgo = []
+
+    ddf_metrics_original = []
+    ddf_metrics_after_pgo = []
+
     for el in os.listdir(data_path):
         sweep_path = os.path.join(data_path, el, "export.h5")
 
@@ -63,6 +66,12 @@ def main():
 
             pred_acc = np.array(f["pred_tracking"])
             gt_acc = np.array(f["gt_tracking"])
+            
+            # load auxiliary data from sweep
+            calibration_matrix = np.array(f["pixel_to_image"])
+        
+            dimensions = np.array(f["dimensions"])
+            image_shape_hw = tuple(dimensions[:2])  # (height, width)
 
             # compute inbetween transforms
             pred_inbetween = compute_inbetween_transforms(pred_acc)
@@ -81,34 +90,48 @@ def main():
             # print(np.abs(reconstructed - pred_acc[10]).max())
 
         ## build graphs
-        _, _, optimized_pred = build_graph(pred_acc_torch, pred_inbetween_torch, True)
+        _, _, optimized_pred = build_graph(pred_acc_torch, pred_inbetween_torch, True) # returns acc values
         #_, _, optimized_gt = build_graph(gt_acc_torch, gt_inbetween_torch, True)
 
-        # gt_acc_torch vs pred_acc_torch (should return same values as evaluate.py)
-        drift_metrics_pred_vs_gt_acc = get_drift_metrics(gt_acc_torch.numpy(), pred_acc_torch.numpy())
-        metrics_original.append(drift_metrics_pred_vs_gt_acc)
+        # get drift metrics
+        drift_metrics_pred_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), pred_acc_torch.numpy())
+        drift_metrics_original.append(drift_metrics_pred_vs_gt)
 
-        # gt_inbetween_torch vs optimized_pred
         optimized_pred_torch = gtsam_values_to_torch(optimized_pred).numpy()
-        drift_metrics_optimized_vs_gt_ib = get_drift_metrics(gt_acc_torch.numpy(), optimized_pred_torch)
-        metrics_after_pgo.append(drift_metrics_optimized_vs_gt_ib)
+        drift_metrics_optimized_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), optimized_pred_torch)
+        drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
+
+        # get ddf metrics
+        ddf_metrics_pred_vs_gt = get_ddf_metrics(
+                pred_acc_torch,
+                pred_inbetween_torch,
+                gt_acc_torch,
+                gt_inbetween_torch,
+                calibration_matrix,
+                image_shape_hw,
+                mode="5pt-landmark",
+            )
+        ddf_metrics_optimized_vs_gt = get_ddf_metrics(
+                optimized_pred_torch,
+                compute_inbetween_transforms(optimized_pred_torch),
+                gt_acc_torch,
+                gt_inbetween_torch,
+                calibration_matrix,
+                image_shape_hw,
+                mode="5pt-landmark",
+            )
+        ddf_metrics_original.append(ddf_metrics_pred_vs_gt)
+        ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
         #break
     
     # drift metrics
-    avg_metrics_original_df = pd.DataFrame(metrics_original).mean()
-    avg_metrics_after_pgo_df = pd.DataFrame(metrics_after_pgo).mean()
+    print("\nAvg drift metrics (initial pred vs optimized pred):\n")
+    print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo])
 
-    print(f"\nAvg drift metrics (gt vs initial pred):")
-    print(f"  Final drift rate:  {avg_metrics_original_df['final_drift_rate']:.4f}%")
-    print(f"  Avg drift rate:    {avg_metrics_original_df['avg_drift_rate']:.4f}%")
-    print(f"  Max drift:         {avg_metrics_original_df['max_drift']:.4f} mm")
-    print(f"  Sum of drift:      {avg_metrics_original_df['sum_of_drift']:.4f} mm")
+    # ddf metrics
+    print("\nAvg DDF metrics (initial pred vs optimized pred):\n")
+    print_avg_metrics([ddf_metrics_original, ddf_metrics_after_pgo])
 
-    print(f"\nAvg drift metrics (gt vs optimized pred)")
-    print(f"  Final drift rate:  {avg_metrics_after_pgo_df['final_drift_rate']:.4f}%")
-    print(f"  Avg drift rate:    {avg_metrics_after_pgo_df['avg_drift_rate']:.4f}%")
-    print(f"  Max drift:         {avg_metrics_after_pgo_df['max_drift']:.4f} mm")
-    print(f"  Sum of drift:      {avg_metrics_after_pgo_df['sum_of_drift']:.4f} mm")
 
 if __name__ == "__main__":
     main()
