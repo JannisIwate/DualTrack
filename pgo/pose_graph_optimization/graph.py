@@ -3,7 +3,7 @@ import gtsam
 import matplotlib.pyplot as plt
 from gtsam import NonlinearFactorGraph, Values, noiseModel
 import gtsam.utils.plot as gtsam_plot
-from graph.utils import *
+from pose_graph_optimization.utils import *
 
 
 def extract_positions(values, pose_type="torch_tensor"):
@@ -32,7 +32,7 @@ def extract_positions(values, pose_type="torch_tensor"):
     return np.array(xs), np.array(ys), np.array(zs)
 
 
-def build_graph(abs_poses, rel_poses, optimize = True):
+def get_optimized_preds(abs_poses, rel_poses, optimize = True):
     N = abs_poses.shape[0]
 
     # build graph

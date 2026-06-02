@@ -9,8 +9,8 @@ import pandas as pd
 sys.path.append(os.getcwd())
 sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack")
 
-from pose_graph_optimization.graph import *
-from pose_graph_optimization.error_metrics import *
+from graph.build_graph import *
+from graph.error_metrics import *
 from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings
 
 
@@ -100,9 +100,9 @@ def main():
             # print("\nReconstruction error (should be near zero):")
             # print(np.abs(reconstructed - pred_acc[10]).max())
 
-            ## build graphs
-            _, _, optimized_pred = get_optimized_preds(pred_acc_torch, pred_inbetween_torch, True) # returns acc values
-            #_, _, optimized_gt = build_graph(gt_acc_torch, gt_inbetween_torch, True)
+        ## build graphs
+        _, _, optimized_pred = get_optimized_preds(pred_acc_torch, pred_inbetween_torch, True, ) # returns acc values
+        #_, _, optimized_gt = get_optimized_preds(gt_acc_torch, gt_inbetween_torch, True)
 
         # get drift metrics
         drift_metrics_pred_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), pred_acc_torch.numpy())
