@@ -80,8 +80,12 @@ def build_graph(abs_poses, rel_poses, optimize = True):
     # optimize
     optimized = None
     if optimize:
+        # params = gtsam.GaussNewtonParams()
+        # optimizer = gtsam.GaussNewtonOptimizer(graph, initial, params)
         params = gtsam.LevenbergMarquardtParams()
         optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial, params)
+        # params = gtsam.DoglegParams()
+        # optimizer = gtsam.DoglegOptimizer(graph, initial, params)
         optimized = optimizer.optimize()
 
     return graph, initial, optimized

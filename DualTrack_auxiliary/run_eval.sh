@@ -4,11 +4,14 @@
 WORKDIR="/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack"
 cd "$WORKDIR" || exit 1
 
+## Notes
+# --include_full_ddf: computes ddf metrics for all points/pixels, does not run on weak pc
+
 
 ### DualTrack25
 
 ## test
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/test --save_predictions
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/test --save_predictions --overwrite_log_dir
 
 ## experiment 1
 
@@ -34,7 +37,7 @@ cd "$WORKDIR" || exit 1
 # transformer: fusion
 # extras: filtering of first null drift value
 
-python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_24_data.yaml --log_dir experiment/dualtrack_25/tusrec_24_val/run_1 --save_predictions
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_24_data.yaml --log_dir experiment/dualtrack_25/tusrec_24_val/run_1 --save_predictions
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1    
 # -> fdr of 28.54%, avg gpe of 24.79mm (worse then DualTrack24?)
@@ -61,7 +64,6 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2
 
 ## test
 #python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test --nr_scans 3 --overwrite_log_dir
-
 
 ## experiment 1
 

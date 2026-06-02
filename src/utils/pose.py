@@ -117,11 +117,10 @@ def get_ddf_metrics(
 def get_tusrec_score(global_err_mean, global_err_max, local_err_mean, local_err_max):
     
     # formula from https://github-pages.ucl.ac.uk/tus-rec-challenge/assessment.html#ranking-method:
-    # GPE* = (GPE – largest_GPE) / (smallest_GPE - largest_GPE)0.43782254
-    # GLE* = (GLE – largest_GLE) / (smallest_GLE - largest_GLE)0.85348664
+    # GPE* = (GPE – largest_GPE) / (smallest_GPE - largest_GPE)
+    # GLE* = (GLE – largest_GLE) / (smallest_GLE - largest_GLE)
     # LPE* = (LPE – largest_LPE) / (smallest_LPE - largest_LPE)
     # LLE* = (LLE – largest_LLE) / (smallest_LLE - largest_LLE)
-#final score tusrec25 val 25 five point 0.64565459
 
     gpe_normalized = (global_err_mean - global_err_max) / (0 - global_err_max)
     lpe_normalized = (local_err_mean - local_err_max) / (0 - local_err_max)

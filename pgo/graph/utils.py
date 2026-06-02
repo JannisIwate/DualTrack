@@ -35,13 +35,13 @@ def compute_inbetween_transforms(acc_transforms):
     inbetween[0] = np.eye(4)
 
     for i in range(1, n):
+
         prev_T = acc_transforms[i - 1]
         curr_T = acc_transforms[i]
 
         delta_T = np.linalg.inv(prev_T) @ curr_T
 
         inbetween[i] = delta_T
-
     return inbetween
 
 
@@ -57,3 +57,11 @@ def gtsam_values_to_torch(values: gtsam.Values, dtype=torch.float32):
 
     stacked = np.stack(data_list, axis=0)
     return torch.tensor(stacked, dtype=dtype)
+
+def inbetween_to_accumulated(inbetween_transforms):
+
+        accumulated = [np.eye(4)]
+
+        for i in range(len(inbetween_transforms)):
+            accumulated.append(accumulated[-1] @ inbetween_transforms[i])
+        return np.stack(accumulated)
