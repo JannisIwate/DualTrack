@@ -54,8 +54,8 @@ class DualTrack(BaseTrackingEstimator, nn.Module):
 
         tracking_decoder_outputs = self.fusion_module(
             local_features, encoder_hidden_states=global_features
-        )
-        return self.head(tracking_decoder_outputs)
+        ) # shape (1, nr images, fv length)
+        return self.head(tracking_decoder_outputs), tracking_decoder_outputs
 
     @typing.overload
     def forward(self, global_encoder_inputs, local_encoder_inputs):

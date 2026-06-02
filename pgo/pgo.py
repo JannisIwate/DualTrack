@@ -11,7 +11,7 @@ sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack")
 
 from graph.build_graph import *
 from graph.error_metrics import *
-from src.utils.pose import get_drift_metrics, get_ddf_metrics
+from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings
 
 
 def parse_arguments():
@@ -19,10 +19,15 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     
     parser.add_argument(
-        "-i", "--input",
+        "-ip", "--input_pred",
         type=str,
         required=True,
-        help="Path to the data directory containing tracking data (export.h5 files)"
+        help="Path to the data directory containing pred data (export.h5 files)"
+    )
+    parser.add_argument(
+        "-ig", "--input_gt",
+        type=str,
+        help="Path to the data directory containing gt data (export.h5 files)"
     )
     parser.add_argument(
         "--loop_closure", "--lc",
@@ -50,7 +55,7 @@ def main():
 
     args = parse_arguments()
     
-    data_path = args.input
+    data_path = args.input_pred
     
     drift_metrics_original = []
     drift_metrics_after_pgo = []
@@ -65,18 +70,24 @@ def main():
         with h5py.File(sweep_path, "r") as f:
 
             pred_acc = np.array(f["pred_tracking"])
-            gt_acc = np.array(f["gt_tracking"])
+
+            if args.input_gt is not None:
+                with h5py.File(os.path.join(args.input_gt, el+".h5"), "r") as f_gt:
+                    gt = np.array(f_gt["tracking"])
+                    gt_acc, gt_inbetween = get_global_and_relative_gt_trackings(gt)
+            else:    
+                gt_acc = np.array(f["gt_tracking"])
+                gt_inbetween = compute_inbetween_transforms(gt_acc)
             
             # load auxiliary data from sweep
-            calibration_matrix = np.array(f["pixel_to_image"])
+            calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
         
             dimensions = np.array(f["dimensions"])
             image_shape_hw = tuple(dimensions[:2])  # (height, width)
 
             # compute inbetween transforms
             pred_inbetween = compute_inbetween_transforms(pred_acc)
-            gt_inbetween = compute_inbetween_transforms(gt_acc)
-
+    
             # convert to torch
             pred_acc_torch = torch.from_numpy(pred_acc).float()
             gt_acc_torch = torch.from_numpy(gt_acc).float()
@@ -101,6 +112,7 @@ def main():
         drift_metrics_optimized_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), optimized_pred_torch)
         drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
 
+        # TODO: Returns slightly different results than DT, why???
         # get ddf metrics
         ddf_metrics_pred_vs_gt = get_ddf_metrics(
                 pred_acc_torch,

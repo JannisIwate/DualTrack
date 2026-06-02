@@ -18,6 +18,7 @@ We use a few naming conventions for tracking sequences:
 """
 
 from copy import deepcopy
+import glob
 from typing import Literal
 
 import numpy as np
@@ -68,19 +69,25 @@ def get_ddf_metrics(
     points_list = dense_displacement_field.make_image_points(H, W, mode=mode)
 
     pred_tracking_glob = torch.tensor(pred_tracking_glob).float()
+    #print("pred_tracking_glob[2]:\n", pred_tracking_glob[2])
     gt_tracking_glob = torch.tensor(gt_tracking_glob).float()
+    #print("gt_tracking_glob[2]:\n", gt_tracking_glob[2])
     pred_tracking_loc = torch.tensor(pred_tracking_loc).float()
     gt_tracking_local = torch.tensor(gt_tracking_loc).float()
     calibration_matrix = torch.tensor(calibration_matrix).float()
+    #print("calibration_matrix:\n", calibration_matrix)
     # permutation = torch.tensor(permutation).float()
     points_list = torch.tensor(points_list).float()
+    
 
     pred_global_ddf = dense_displacement_field.cal_global_allpts(
         pred_tracking_glob[1:], calibration_matrix, points_list
     )
+    #print("pred_global_ddf:\n", pred_global_ddf)
     gt_global_ddf = dense_displacement_field.cal_global_allpts(
         gt_tracking_glob[1:], calibration_matrix, points_list
     )
+    #print("gt_global_ddf:\n", gt_global_ddf)
     pred_local_ddf = dense_displacement_field.cal_local_allpts(
         pred_tracking_loc[1:], calibration_matrix, points_list
     )
@@ -97,6 +104,7 @@ def get_ddf_metrics(
     local_err_mean = local_err.mean().item()
 
     metrics["avg_global_displacement_error"] = global_err_mean
+    #print("avg_global_displacement_error:\n", global_err_mean)
     metrics["max_global_displacement_error"] = global_err_max
     metrics["avg_local_displacement_error"] = local_err_mean
     metrics["max_local_displacement_error"] = local_err_max

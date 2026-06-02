@@ -22,7 +22,7 @@ cd "$WORKDIR" || exit 1
 # transformer: fusion
 # extras: filtering of first null drift value
 
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run --save_predictions
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run --save_predictions --overwrite_log_dir
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run
 # -> very bad fdr of 73%, avg gpe of 9.1mm (reported in repo), final score of 0.64

@@ -426,10 +426,11 @@ def run_full_test_loop(
             enabled=use_amp,
         ):
             if pred_logic:
-                pred = pred_logic(batch, model, device)
+                pred, fvs = pred_logic(batch, model, device)
             else:
                 assert isinstance(model, TrackingEstimatorProtocol)
-                pred = model.predict(batch)
+                pred, fvs = model.predict(batch)
+            fvs = fvs.cpu().numpy().squeeze(0)
 
         # Update evaluator with predictions
         torch.cuda.synchronize()
@@ -467,6 +468,7 @@ def run_full_test_loop(
                 f["gt_tracking"] = gt_tracking_sequence
                 f["pred_tracking"] = pred_tracking_sequence
                 f["pixel_to_image"] = pixel_to_image
+                f["fvs"] = fvs
 
         # Get metrics and figures
         metrics, figures = evaluator.complete_update(include_images=True)
@@ -493,6 +495,8 @@ def run_full_test_loop(
         results_df.to_csv(output_dir / "metrics.csv", index=False)
 
         start_time = time.time()
+
+        #break
 
     metrics = {}
     metrics["max_mem"] = max_mem
