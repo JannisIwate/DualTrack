@@ -1,131 +1,213 @@
 import numpy as np
 import gtsam
-import matplotlib.pyplot as plt
 from gtsam import NonlinearFactorGraph, Values, noiseModel
-import gtsam.utils.plot as gtsam_plot
-from pose_graph_optimization.utils import *
+from pose_graph_optimization.utils import mat4_to_pose3
 
 
-def extract_positions(values, pose_type="torch_tensor"):
+class PoseGraph:
 
-    xs, ys, zs = [], [], []
+    def __init__(
+        self,
+        poses,
+        constraints,
+        initial_pose=None,
+        noise_type="gaussian",
+        prior_noise_sigma=1e-5,
+        odom_noise_sigma=1e-2,
+        optimizer="gauss-newton",
+        optimizer_params=None,
+    ):
+        self.abs_poses = poses
+        self.rel_poses = constraints
+        self.initial_pose = initial_pose
 
-    if pose_type == "torch_tensor":
+        self.noise_type = noise_type
 
-        for el in values:
+        self.prior_noise_sigma = prior_noise_sigma
+        self.odom_noise_sigma = odom_noise_sigma
 
-            xs.append(el[0, 3])
-            ys.append(el[1, 3])
-            zs.append(el[2, 3])
-    elif pose_type == "gtsam_values":
+        self.optimizer_name = optimizer
+        self.optimizer_params = optimizer_params or {}
 
-        for el in sorted(values.keys()):
+        self.N = poses.shape[0]
 
-            p = values.atPose3(el).translation()
-            x, y, z = p[0], p[1], p[2]
-            
-            xs.append(x)
-            ys.append(y)
-            zs.append(z)
-    else:
-        raise ValueError(f"Invalid pose_type: {pose_type}")
-    return np.array(xs), np.array(ys), np.array(zs)
+        # if len(constraints) != self.N - 1:
+        #     raise ValueError(
+        #         "Expected len(rel_poses) == N - 1."
+        #     )
 
+        self.additional_constraints = []
 
-def get_optimized_preds(abs_poses, rel_poses, optimize = True):
-    N = abs_poses.shape[0]
+        self.graph = None
+        self.initial = None
+        self.optimized = None
 
-    # build graph
-    graph = NonlinearFactorGraph()
-    initial = Values()
+    def _create_noise_model(self, sigma):
 
-    # gaussian noise models (tune these!)
-    prior_noise = noiseModel.Diagonal.Sigmas( # small sigma equals big weight -> high impact on cost function
-        np.array([1e-5]*6)
-    )
+        sigma = np.asarray(sigma)
 
-    odom_noise = noiseModel.Diagonal.Sigmas(
-        np.array([1e-2]*6)
-    )
+        if sigma.ndim == 0:
+            sigma = np.full(6, sigma)
 
-    # Insert nodes (absolute poses)
-    for i in range(N):
-        pose = mat4_to_pose3(abs_poses[i])
-        initial.insert(i, pose)
+        elif sigma.size == 1:
+            sigma = np.full(6, sigma.item())
 
-    # anchor first pose, prior
-    graph.add(
-        gtsam.PriorFactorPose3(
-            0,
-            initial.atPose3(0),
-            prior_noise
+        elif sigma.size != 6:
+            raise ValueError(
+                "Noise must be scalar or length-6 vector."
+            )
+
+        return noiseModel.Diagonal.Sigmas(sigma)
+
+    def add_constraint(
+        self,
+        node_i,
+        node_j,
+        transform,
+        noise_sigma=1e-2,
+    ):
+        self.additional_constraints.append(
+            {
+                "i": node_i,
+                "j": node_j,
+                "transform": transform,
+                "noise": noise_sigma,
+            }
         )
-    )
 
-    # add odometry edges
-    for i in range(N-1): # one less edge than nodes (without prior)
-        rel_pose = mat4_to_pose3(rel_poses[i])
+    def build_graph(self):
 
-        graph.add(
-            gtsam.BetweenFactorPose3(
-                i,
-                i + 1,
-                rel_pose,
-                odom_noise
+        self.graph = NonlinearFactorGraph()
+        self.initial = Values()
+
+        ## insert nodes
+        for idx in range(self.N):
+            self.initial.insert(
+                idx,
+                mat4_to_pose3(self.abs_poses[idx]),
+            )
+
+        # prior
+        prior_pose = (
+            self.initial_pose
+            if self.initial_pose is not None
+            else self.abs_poses[0]
+        )
+
+        self.graph.add(
+            gtsam.PriorFactorPose3(
+                0,
+                mat4_to_pose3(prior_pose),
+                self._create_noise_model(
+                    self.prior_noise_sigma
+                ),
             )
         )
 
-    # print(f"Graph: {graph.size()} factors, {N} poses")
+        ## add constraints
+        if np.isscalar(self.odom_noise_sigma):
 
-    # optimize
-    optimized = None
-    if optimize:
-        # params = gtsam.GaussNewtonParams()
-        # optimizer = gtsam.GaussNewtonOptimizer(graph, initial, params)
-        params = gtsam.LevenbergMarquardtParams()
-        optimizer = gtsam.LevenbergMarquardtOptimizer(graph, initial, params)
-        # params = gtsam.DoglegParams()
-        # optimizer = gtsam.DoglegOptimizer(graph, initial, params)
-        optimized = optimizer.optimize()
+            edge_noises = [
+                self.odom_noise_sigma
+            ] * (self.N - 1)
 
-    return graph, initial, optimized
+        else:
 
-def plot_marginals(graph, optimized, step_size=1, n_values=None):
+            if len(self.odom_noise_sigma) != self.N - 1:
+                raise ValueError(
+                    f"Expected {self.N - 1} odom noises "
+                    f"but got {len(self.odom_noise_sigma)}"
+                )
 
-    if n_values is None:
-        n_values = optimized.size()
+            edge_noises = self.odom_noise_sigma
 
-    if n_values > optimized.size():
-        raise ValueError(f"n_values must be less than or equal to the number of poses!")
+        for i in range(self.N - 1):
 
-    marginals = gtsam.Marginals(graph, optimized)
+            self.graph.add(
+                gtsam.BetweenFactorPose3(
+                    i,
+                    i + 1,
+                    mat4_to_pose3(
+                        self.rel_poses[i]
+                    ),
+                    self._create_noise_model(
+                        edge_noises[i]
+                    ),
+                )
+            )
 
-    for i in range(0, n_values, step_size):
-        print(f"Pose {i} covariance:\n{marginals.marginalCovariance(i)}\n")
-    for i in range(0, n_values, step_size):
-        gtsam_plot.plot_pose3(0, optimized.atPose3(i), 0.5, marginals.marginalCovariance(i))
-    plt.show()
+        # additional constraints
+        for c in self.additional_constraints:
 
-def plot_trajectories(trajectories, labels=None, colors=None):
+            self.graph.add(
+                gtsam.BetweenFactorPose3(
+                    c["i"],
+                    c["j"],
+                    mat4_to_pose3(c["transform"]),
+                    self._create_noise_model(
+                        c["noise"]
+                    ),
+                )
+            )
 
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+        self._optimize()
 
-    n = len(trajectories)
+        return self.graph, self.initial, self.optimized
 
-    # defaults
-    if labels is None:
-        labels = [f"traj_{i}" for i in range(n)]
-    if colors is None:
-        colors = [None] * n
+    def _optimize(self):
 
-    for i, (xs, ys, zs) in enumerate(trajectories):
-        ax.plot(xs, ys, zs,
-                label=labels[i],
-                color=colors[i])
+        # if self.graph is None or self.initial is None:
+        #     raise RuntimeError(
+        #         "Call build_graph() first."
+        #     )
 
-    ax.scatter(xs[0], ys[0], zs[0], color=colors[i])
+        optimizer_name = self.optimizer_name.lower()
 
-    ax.set_title("Pose Graph Trajectories")
-    ax.legend()
-    plt.show()
+        if optimizer_name == "gauss-newton":
+
+            params = gtsam.GaussNewtonParams()
+
+            optimizer = gtsam.GaussNewtonOptimizer(
+                self.graph,
+                self.initial,
+                params,
+            )
+
+        elif optimizer_name == "levenberg-marquardt":
+
+            params = gtsam.LevenbergMarquardtParams()
+
+            optimizer = (
+                gtsam.LevenbergMarquardtOptimizer(
+                    self.graph,
+                    self.initial,
+                    params,
+                )
+            )
+
+        elif optimizer_name == "dogleg":
+
+            params = gtsam.DoglegParams()
+
+            optimizer = gtsam.DoglegOptimizer(
+                self.graph,
+                self.initial,
+                params,
+            )
+
+        else:
+            raise ValueError(
+                f"Unknown optimizer: {self.optimizer_name}"
+            )
+
+        # optional parameter injection
+        for key, value in self.optimizer_params.items():
+
+            setter = f"set{key[0].upper()}{key[1:]}"
+
+            if hasattr(params, setter):
+                getattr(params, setter)(value)
+
+        self.optimized = optimizer.optimize()
+
+        return self.optimized

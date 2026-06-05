@@ -7,10 +7,12 @@ import numpy as np
 import pandas as pd
 
 sys.path.append(os.getcwd())
-sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack")
+sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
+[sys.path.append(i) for i in ['.', '..']]
 
 from pose_graph_optimization.graph import *
 from pose_graph_optimization.error_metrics import *
+from pose_graph_optimization.utils import *
 from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings
 
 
@@ -101,14 +103,23 @@ def main():
             # print(np.abs(reconstructed - pred_acc[10]).max())
 
             ## build graphs
-            _, _, optimized_pred = get_optimized_preds(pred_acc_torch, pred_inbetween_torch, True) # returns acc values
-            #_, _, optimized_gt = build_graph(gt_acc_torch, gt_inbetween_torch, True)
+            _, _, pred_graph = PoseGraph(
+                poses=pred_acc_torch,
+                constraints=pred_inbetween_torch,
+                initial_pose=pred_acc_torch[0]
+            ).build_graph()
+
+            _, _, gt_graph = PoseGraph(
+                poses=gt_acc_torch,
+                constraints=gt_inbetween_torch,
+                initial_pose=gt_acc_torch[0]
+            ).build_graph()
 
         # get drift metrics
         drift_metrics_pred_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), pred_acc_torch.numpy())
         drift_metrics_original.append(drift_metrics_pred_vs_gt)
 
-        optimized_pred_torch = gtsam_values_to_torch(optimized_pred).numpy()
+        optimized_pred_torch = gtsam_values_to_torch(pred_graph).numpy()
         drift_metrics_optimized_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), optimized_pred_torch)
         drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
 
