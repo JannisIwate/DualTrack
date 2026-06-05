@@ -28,7 +28,6 @@ local/
 .slurm_logs
 .slurm
 .submitit
-experiments
 setup.sh
 wandb/
 

@@ -32,6 +32,11 @@ def parse_arguments():
         help="Path to the data directory containing gt data (export.h5 files)"
     )
     parser.add_argument(
+        "-o", "--output_dir",
+        type=str,
+        help="Path to the output directory for saving results"
+    )
+    parser.add_argument(
         "--loop_closure", "--lc",
         action="store_true",
         dest="loop_closure",
@@ -68,9 +73,9 @@ def main():
     for el in os.listdir(data_path):
         sweep_path = os.path.join(data_path, el, "export.h5")
 
-        ## load data
         with h5py.File(sweep_path, "r") as f:
 
+            ## load data
             pred_acc = np.array(f["pred_tracking"])
 
             if args.input_gt is not None:
@@ -80,23 +85,21 @@ def main():
             else:    
                 gt_acc = np.array(f["gt_tracking"])
                 gt_inbetween = compute_inbetween_transforms(gt_acc)
-            
+
             # load auxiliary data from sweep
             calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
         
             dimensions = np.array(f["dimensions"])
-            image_shape_hw = tuple(dimensions[:2])  # (height, width)
-
-            # compute inbetween transforms
+            image_shape_hw = tuple(dimensions[:2])  # (height, width)  
+            
+            # reformat
             pred_inbetween = compute_inbetween_transforms(pred_acc)
-    
-            # convert to torch
             pred_acc_torch = torch.from_numpy(pred_acc).float()
             gt_acc_torch = torch.from_numpy(gt_acc).float()
 
             pred_inbetween_torch = torch.from_numpy(pred_inbetween).float()
             gt_inbetween_torch = torch.from_numpy(gt_inbetween).float()
-
+                      
             # sanity check
             # reconstructed = pred_acc[9] @ pred_inbetween[10]
             # print("\nReconstruction error (should be near zero):")
@@ -115,7 +118,8 @@ def main():
                 initial_pose=gt_acc_torch[0]
             ).build_graph()
 
-        # get drift metrics
+        ## metrics
+        # drift metrics
         drift_metrics_pred_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), pred_acc_torch.numpy())
         drift_metrics_original.append(drift_metrics_pred_vs_gt)
 
@@ -124,7 +128,7 @@ def main():
         drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
 
         # TODO: Returns slightly different results than DT, why???
-        # get ddf metrics
+        # ddf metrics
         ddf_metrics_pred_vs_gt = get_ddf_metrics(
                 pred_acc_torch,
                 pred_inbetween_torch,
@@ -147,13 +151,21 @@ def main():
         ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
         #break
     
-    # drift metrics
+    # print and save metrics
     print("\nAvg drift metrics (initial pred vs optimized pred):\n")
     print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo])
 
-    # ddf metrics
     print("\nAvg DDF metrics (initial pred vs optimized pred):\n")
     print_avg_metrics([ddf_metrics_original, ddf_metrics_after_pgo])
+
+    save_results(
+        output_dir=args.output_dir,
+        graph=pred_graph,
+        initial=pred_acc_torch,
+        optimized=gtsam_values_to_torch(pred_graph),
+        metrics_original=[drift_metrics_original, ddf_metrics_original],
+        metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo]
+    )
 
 
 if __name__ == "__main__":
