@@ -10,11 +10,6 @@ def find_loop_closures(
     k_neighbors=10,
     max_distance=0.5,
 ):
-    """
-    Returns:
-        [(i,j,dist), ...]
-    """
-
     features = features.astype(np.float32)
 
     nbrs = NearestNeighbors(

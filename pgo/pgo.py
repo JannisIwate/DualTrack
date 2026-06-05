@@ -13,6 +13,7 @@ sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
 from pose_graph_optimization.graph import *
 from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
+from pose_graph_optimization.loop_closure import detect_loop_closures
 from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings
 
 
@@ -88,42 +89,53 @@ def main():
 
             # load auxiliary data from sweep
             calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
+            fvs = np.array(f["fvs"])
+            frames = np.array(f["images"])
         
             dimensions = np.array(f["dimensions"])
-            image_shape_hw = tuple(dimensions[:2])  # (height, width)  
+
+        image_shape_hw = tuple(dimensions[:2])  # (height, width)  
+        
+        # reformat
+        pred_inbetween = compute_inbetween_transforms(pred_acc)
+        pred_acc_torch = torch.from_numpy(pred_acc).float()
+        gt_acc_torch = torch.from_numpy(gt_acc).float()
+
+        pred_inbetween_torch = torch.from_numpy(pred_inbetween).float()
+        gt_inbetween_torch = torch.from_numpy(gt_inbetween).float()
+                    
+        # sanity check
+        # reconstructed = pred_acc[9] @ pred_inbetween[10]
+        # print("\nReconstruction error (should be near zero):")
+        # print(np.abs(reconstructed - pred_acc[10]).max())
+
+        ## build graphs
+        # create graph
+        pred_graph = PoseGraph(
+            poses=pred_acc_torch,
+            constraints=pred_inbetween_torch,
+            initial_pose=pred_acc_torch[0]
+        )
+
+        # additional constraints
+        if args.loop_closure:
+            detect_loop_closures(fvs, frames)
+        if args.image_registration:
+            # Implement image registration logic here
+            pass
+        if args.optical_flow:
+            # Implement optical flow logic here
+            pass
             
-            # reformat
-            pred_inbetween = compute_inbetween_transforms(pred_acc)
-            pred_acc_torch = torch.from_numpy(pred_acc).float()
-            gt_acc_torch = torch.from_numpy(gt_acc).float()
-
-            pred_inbetween_torch = torch.from_numpy(pred_inbetween).float()
-            gt_inbetween_torch = torch.from_numpy(gt_inbetween).float()
-                      
-            # sanity check
-            # reconstructed = pred_acc[9] @ pred_inbetween[10]
-            # print("\nReconstruction error (should be near zero):")
-            # print(np.abs(reconstructed - pred_acc[10]).max())
-
-            ## build graphs
-            _, _, pred_graph = PoseGraph(
-                poses=pred_acc_torch,
-                constraints=pred_inbetween_torch,
-                initial_pose=pred_acc_torch[0]
-            ).build_graph()
-
-            _, _, gt_graph = PoseGraph(
-                poses=gt_acc_torch,
-                constraints=gt_inbetween_torch,
-                initial_pose=gt_acc_torch[0]
-            ).build_graph()
+        # get optimized trajectory
+        pred_graph_gtsam, _, pred_optimized = pred_graph.build_graph()
 
         ## metrics
         # drift metrics
         drift_metrics_pred_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), pred_acc_torch.numpy())
         drift_metrics_original.append(drift_metrics_pred_vs_gt)
 
-        optimized_pred_torch = gtsam_values_to_torch(pred_graph).numpy()
+        optimized_pred_torch = gtsam_values_to_torch(pred_optimized).numpy()
         drift_metrics_optimized_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), optimized_pred_torch)
         drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
 
@@ -160,9 +172,9 @@ def main():
 
     save_results(
         output_dir=args.output_dir,
-        graph=pred_graph,
+        graph=pred_graph_gtsam,
         initial=pred_acc_torch,
-        optimized=gtsam_values_to_torch(pred_graph),
+        optimized=optimized_pred_torch,
         metrics_original=[drift_metrics_original, ddf_metrics_original],
         metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo]
     )
