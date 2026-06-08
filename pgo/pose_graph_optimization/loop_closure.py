@@ -6,6 +6,7 @@ from .image_registration import register
 def detect_loop_closures(
     feature_vectors,
     frames,
+    transforms,
     method="k_nearest_neighbor",
     stepsize=10,
     temporal_offset=50,
@@ -29,15 +30,17 @@ def detect_loop_closures(
 
             candidate_feature = (feature_vectors[j].reshape(1, -1))
 
-            lc_score = cosine_similarity(query_feature,candidate_feature)[0, 0]
+            lc_score = cosine_similarity(query_feature, candidate_feature)[0, 0]
 
             # convert cosine similarity to score (-1 to 1 -> 0 to 1)
             lc_score = (lc_score + 1.0) / 2.0
+            print(f"lc score {lc_score}") # currently very high for every pair, look at how it is created
             
             # register potential LC frames
             if lc_score >= threshold:
+                #print("lc detected")
 
-                transform, reg_score = register(frames[i],frames[j])
+                transform, reg_score = register(frames[i],frames[j], transforms[i])
 
                 combined_score = (lc_score + reg_score) / 2
 

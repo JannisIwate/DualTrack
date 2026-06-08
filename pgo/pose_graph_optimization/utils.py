@@ -71,7 +71,7 @@ def inbetween_to_accumulated(inbetween_transforms):
         return np.stack(accumulated)
 
 
-def twodof_to_sixdof(T_ref: np.ndarray, T_2d: np.ndarray):
+def threedof_to_sixdof(T_ref: np.ndarray, T_2d: np.ndarray):
 
     T_new = T_ref.copy()
 
@@ -95,3 +95,20 @@ def twodof_to_sixdof(T_ref: np.ndarray, T_2d: np.ndarray):
     T_new[:3, :3] = rot_new.as_matrix()
 
     return T_new
+
+import numpy as np
+
+
+def pose3_to_se2(T: np.ndarray):
+
+    x = T[0, 3]
+    y = T[1, 3]
+
+    R = T[:3, :3]
+
+    yaw = np.arctan2(
+        R[1, 0],
+        R[0, 0],
+    )
+
+    return x, y, yaw

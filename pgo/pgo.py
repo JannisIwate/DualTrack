@@ -121,7 +121,7 @@ def main():
         # additional constraints
         if args.loop_closure:
 
-            for lc in detect_loop_closures(fvs, frames):
+            for lc in detect_loop_closures(fvs, frames, pred_acc_torch, stepsize=100, temporal_offset=100):
 
                 # get lc data
                 i = lc["source_idx"]
@@ -130,7 +130,7 @@ def main():
                 score = lc["combined_score"]
 
                 # build 6DoF transform from 3DoF transform
-                T_reg = twodof_to_sixdof(pred_inbetween_torch[i].numpy(), transform)
+                T_reg = threedof_to_sixdof(pred_inbetween_torch[i].numpy(), transform)
 
                 # add constraint
                 pred_graph.add_constraint(
