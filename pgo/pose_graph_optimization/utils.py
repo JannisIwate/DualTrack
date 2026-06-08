@@ -2,6 +2,7 @@ import gtsam
 import numpy as np
 import torch
 import pandas as pd
+from scipy.spatial.transform import Rotation
 
 
 def pose3_to_mat4(pose):
@@ -68,3 +69,29 @@ def inbetween_to_accumulated(inbetween_transforms):
 
             accumulated.append(accumulated[-1] @ inbetween_transforms[i])
         return np.stack(accumulated)
+
+
+def twodof_to_sixdof(T_ref: np.ndarray, T_2d: np.ndarray):
+
+    T_new = T_ref.copy()
+
+    # translation
+    T_new[0, 3] = T_2d[0, 2]
+    T_new[1, 3] = T_2d[1, 2]
+
+    # observed image rotation
+    Rz = np.eye(3)
+    Rz[:2, :2] = T_2d[:2, :2]
+
+    R_ref = T_ref[:3, :3]
+
+    # keep roll/pitch from ref, replace only image-plane rotation
+    R_delta = Rotation.from_matrix(Rz)
+
+    rot_ref = Rotation.from_matrix(R_ref)
+
+    rot_new = R_delta * rot_ref
+
+    T_new[:3, :3] = rot_new.as_matrix()
+
+    return T_new

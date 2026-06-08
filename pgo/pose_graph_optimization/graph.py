@@ -98,18 +98,14 @@ class PoseGraph:
             gtsam.PriorFactorPose3(
                 0,
                 mat4_to_pose3(prior_pose),
-                self._create_noise_model(
-                    self.prior_noise_sigma
-                ),
+                self._create_noise_model(self.prior_noise_sigma),
             )
         )
 
         ## add constraints
         if np.isscalar(self.odom_noise_sigma):
 
-            edge_noises = [
-                self.odom_noise_sigma
-            ] * (self.N - 1)
+            edge_noises = [self.odom_noise_sigma] * (self.N - 1)
 
         else:
 
@@ -127,12 +123,8 @@ class PoseGraph:
                 gtsam.BetweenFactorPose3(
                     i,
                     i + 1,
-                    mat4_to_pose3(
-                        self.rel_poses[i]
-                    ),
-                    self._create_noise_model(
-                        edge_noises[i]
-                    ),
+                    mat4_to_pose3(self.rel_poses[i]),
+                    self._create_noise_model(edge_noises[i])
                 )
             )
 
@@ -144,9 +136,7 @@ class PoseGraph:
                     c["i"],
                     c["j"],
                     mat4_to_pose3(c["transform"]),
-                    self._create_noise_model(
-                        c["noise"]
-                    ),
+                    c["noise"],
                 )
             )
 
@@ -211,3 +201,21 @@ class PoseGraph:
         self.optimized = optimizer.optimize()
 
         return self.optimized
+
+
+def registration_noise_model(confidence: float):
+
+    sigma_xy = max(0.5,10.0 * (1.0 - confidence))
+
+    sigma_yaw = np.deg2rad(max(2.0,20.0 * (1.0 - confidence),))
+
+    sigmas = np.array([1e6,       # roll
+                       1e6,       # pitch
+                       sigma_yaw, # yaw
+                       sigma_xy,  # x
+                       sigma_xy,  # y
+                       1e6,       # z
+                       ]
+                    )
+
+    return gtsam.noiseModel.Diagonal.Sigmas(sigmas)

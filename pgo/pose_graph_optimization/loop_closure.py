@@ -29,20 +29,23 @@ def detect_loop_closures(
 
             candidate_feature = (feature_vectors[j].reshape(1, -1))
 
-            score = cosine_similarity(query_feature,candidate_feature)[0, 0]
+            lc_score = cosine_similarity(query_feature,candidate_feature)[0, 0]
 
             # convert cosine similarity to score (-1 to 1 -> 0 to 1)
-            score = (score + 1.0) / 2.0
+            lc_score = (lc_score + 1.0) / 2.0
             
             # register potential LC frames
-            if score >= threshold:
+            if lc_score >= threshold:
 
-                transform = register(frames[i],frames[j])
+                transform, reg_score = register(frames[i],frames[j])
+
+                combined_score = (lc_score + reg_score) / 2
+
                 loop_closures.append(
                     {
                         "source_idx": i,
                         "target_idx": j,
-                        "score": float(score),
+                        "score": float(combined_score),
                         "transform": transform,
                     }
                 )

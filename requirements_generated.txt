@@ -34,3 +34,4 @@ wandb==0.26.1
 tables
 gtsam
 sklearn
+simpleitk

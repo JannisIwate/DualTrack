@@ -15,6 +15,7 @@ from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
 from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings
+from pose_graph_optimization.image_registration import register
 
 
 def parse_arguments():
@@ -119,7 +120,26 @@ def main():
 
         # additional constraints
         if args.loop_closure:
-            detect_loop_closures(fvs, frames)
+
+            for lc in detect_loop_closures(fvs, frames):
+
+                # get lc data
+                i = lc["source_idx"]
+                j = lc["target_idx"]
+                transform = lc["transform"] # 3DoF
+                score = lc["combined_score"]
+
+                # build 6DoF transform from 3DoF transform
+                T_reg = twodof_to_sixdof(pred_inbetween_torch[i].numpy(), transform)
+
+                # add constraint
+                pred_graph.add_constraint(
+                    i,
+                    j,
+                    T_reg,
+                    registration_noise_model(score) # noise according to confidence
+                )
+
         if args.image_registration:
             # Implement image registration logic here
             pass
