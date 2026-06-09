@@ -20,7 +20,6 @@ from src.utils.pose import (
     get_ddf_metrics,
     get_global_and_relative_gt_trackings,
 )
-from pose_graph_optimization.image_registration import register
 
 
 def parse_arguments():

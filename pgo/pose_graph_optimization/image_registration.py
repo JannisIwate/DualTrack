@@ -4,117 +4,117 @@ from pose_graph_optimization.utils import pose3_to_se2
 from scipy.spatial.transform import Rotation
 
 
-def register_old(frame_i, frame_j):
-
-    # dummy implementation for now
-    # in practice, this would involve feature matching and pose estimation
-    transform = np.eye(4)
-
-    return transform
-
-
 def register(
     frame_i: np.ndarray,
     frame_j: np.ndarray,
     transform: np.ndarray,
-    pixel_to_image
+    metric = "mi",
+    max_metric_change_percentage: float = 20.0,
 ):
 
     # init frames
     fixed = sitk.GetImageFromArray(frame_i.astype(np.float32))
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
-    fixed.SetSpacing(
-    (
-        0.22938919,
-        0.22097969
-    )
-    )
+    fixed.SetSpacing((0.22938919, 0.22097969)) # values from DualTrack repo
+    moving.SetSpacing((0.22938919, 0.22097969))
 
-    moving.SetSpacing(
-        (
-            0.22938919,
-            0.22097969
-        )
-    )
-    fixed.SetOrigin(
-        (-73.28984642, -52.92463589)
-    )
+    fixed.SetOrigin((-73.28984642, -52.92463589))
+    moving.SetOrigin((-73.28984642, -52.92463589))
 
-    moving.SetOrigin(
-        (-73.28984642, -52.92463589)
-    )
-
-    # print("fixed size:", fixed.GetSize())
-    # print("moving size:", moving.GetSize())
-
-    # print("fixed origin:", fixed.GetOrigin())
-    # print("moving origin:", moving.GetOrigin())
-
-    # print("fixed spacing:", fixed.GetSpacing())
-    # print("moving spacing:", moving.GetSpacing())
-
-    # init initial transformation (tried to fix ir failing (All samples map outside moving image buffer) by initializing with DL T but didn't work)
-    # maybe try elastix IR (should be more robust)
-    # look at units of DL Ts, pixel to mm, init of coordinate system
+    # init transform from DL pose
     x, y, yaw = pose3_to_se2(transform)
+
     initial = sitk.Euler2DTransform()
-    # initial.SetTranslation(
-    #     ((float(x) - 73.28984642) / 0.22938919, (float(y) - 52.92463589) / 0.22097969)
-    # )
+
     initial.SetTranslation(
         (float(x) / 0.22938919, float(y) / 0.22097969)
     )
-    initial.SetAngle(
-        float(yaw)
-    )
+    initial.SetAngle(float(yaw))
 
-    # set up registration
+    # registration setup
     registration = sitk.ImageRegistrationMethod()
-    registration.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
+
+    #metric = metric.upper()
+
+    if metric is "mi":
+        registration.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
+
+    elif metric is "corr":
+        registration.SetMetricAsCorrelation()
+
+    elif metric is "mse":
+        registration.SetMetricAsMeanSquares()
+
+    else:
+        raise ValueError(
+            f"Unknown metric '{metric}'. "
+            "Use 'mi', 'corr' or 'mse'."
+        )
+
     registration.SetInterpolator(sitk.sitkLinear)
+
     registration.SetOptimizerAsRegularStepGradientDescent(
         learningRate=1.0,
         minStep=1e-4,
         numberOfIterations=200,
     )
-    registration.SetInitialTransform(initial)
-    # registration.AddCommand(
-    #     sitk.sitkIterationEvent,
-    #     lambda: print(
-    #         registration.GetOptimizerPosition()
-    #     )
-    # )
 
-    # register
+    registration.SetInitialTransform(initial)
+
+    # metric before optimization
+    metric_before = registration.MetricEvaluate(fixed, moving)
+
+    print(
+        f"[{metric}] score before reg: "
+        f"{metric_before:.6f}"
+    )
+
+    # optimize
     T_px_reg = registration.Execute(fixed, moving)
 
-    # build transformation matrix
+    metric_after = registration.GetMetricValue()
+
+    print(
+        f"[{metric}] score after reg: "
+        f"{metric_after:.6f}"
+    )
+
+    # compare before/after metric
+    eps = 1e-12 # prevent zero divs
+
+    metric_change_percent = (abs(metric_after - metric_before) / (abs(metric_before) + eps)) * 100.0
+
+    rating = metric_change_percent <= max_metric_change_percentage
+
+    print(
+        f"[{metric}] metric change: "
+        f"{metric_change_percent:.2f}% "
+        f"(threshold={max_metric_change_percentage:.2f}%) "
+        f"-> rating={rating}"
+    )
+
+    # build registration transform
     angle = T_px_reg.GetAngle()
     tx, ty = T_px_reg.GetTranslation()
 
     c = np.cos(angle)
     s = np.sin(angle)
 
-    T = np.array([
+    T = np.array(
+        [
             [c, -s, tx],
             [s,  c, ty],
             [0,  0,  1],
-            ],
-            dtype=np.float64
-            )
-    
-    T_fused = fuse_registration_with_pose(
-        np.array(transform),
-        T,
+        ],
+        dtype=np.float64,
     )
 
-    # get confidence
-    metric = registration.GetMetricValue()
+    T_fused = fuse_registration_with_pose(np.array(transform), T)
 
-    confidence = 1.0 / (1.0 + abs(metric))
+    confidence = max(0.0, 1.0 - metric_change_percent / max_metric_change_percentage)
 
-    return T_fused, confidence
+    return T_fused, confidence, rating
 
 
 def fuse_registration_with_pose(

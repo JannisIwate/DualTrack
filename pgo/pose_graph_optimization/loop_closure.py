@@ -43,11 +43,10 @@ def detect_loop_closures(
                     continue
                 #print(f"lc score: {score}")
 
-                transform, reg_score = register(
-                    frames[i],
-                    frames[j],
-                    transforms[i],
-                    pixel_to_image,
+                transform, _,  reg_score = register(
+                    frame_i=frames[i],
+                    frame_j=frames[j],
+                    transform=transforms[i]
                 )
 
                 loop_closures.append(
@@ -89,23 +88,24 @@ def detect_loop_closures(
 
                 if score < threshold:
                     continue
-                print(f"lc score: {score}")
 
-                transform, reg_score = register(
-                    frames[i],
-                    frames[j],
-                    transforms[i],
-                    pixel_to_image,
+                transform, _, rating = register(
+                    frame_i=frames[i],
+                    frame_j=frames[j],
+                    transform=transforms[i]
                 )
+                # print(reg_score)
+                # print(score)
 
-                loop_closures.append(
-                    {
-                        "source_idx": i,
-                        "target_idx": int(j),
-                        "combined_score": (score + reg_score) / 2,
-                        "transform": transform,
-                    }
-                )
+                if rating:
+                    loop_closures.append(
+                        {
+                            "source_idx": i,
+                            "target_idx": int(j),
+                            "combined_score": (score) / 2,
+                            "transform": transform,
+                        }
+                    )
 
     else:
         raise NotImplementedError(
