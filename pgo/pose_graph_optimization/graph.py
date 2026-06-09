@@ -207,14 +207,14 @@ def registration_noise_model(confidence: float):
 
     sigma_xy = max(0.5,10.0 * (1.0 - confidence))
 
-    sigma_yaw = np.deg2rad(max(2.0,20.0 * (1.0 - confidence),))
+    sigma_yaw = np.deg2rad(max(2.0,20.0 * (1.0 - confidence)))
 
-    sigmas = np.array([1e6,       # roll
-                       1e6,       # pitch
+    sigmas = np.array([1e4,       # roll
+                       1e4,       # pitch
                        sigma_yaw, # yaw
                        sigma_xy,  # x
                        sigma_xy,  # y
-                       1e6,       # z
+                       1e4,       # z
                        ]
                     )
 

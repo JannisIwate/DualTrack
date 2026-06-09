@@ -486,9 +486,6 @@ if __name__ == "__main__":
     for file in h5_files:
 
         with h5py.File(file, "r") as f:
-            print(f.keys())
-            print(f["images"].shape)
-            # print(f["pixel_to_image"][:])
             images_arr = f["images"][:]
             gt_tracking = f["tracking"][:]
 

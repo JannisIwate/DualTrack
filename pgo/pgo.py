@@ -94,6 +94,11 @@ def main():
             frames = np.array(f["images"])
         
             dimensions = np.array(f["dimensions"])
+            # print(f.keys())
+            # print(f"pixel_to_image:\n {np.array(f['pixel_to_image'])}")
+            # print(f"spacing\n: {np.array(f['spacing'])}")
+            # print(f"gt_tracking\n: {np.array(f['gt_tracking'][2])}")
+            # breakpoint()
 
         image_shape_hw = tuple(dimensions[:2])  # (height, width)  
         
@@ -121,7 +126,7 @@ def main():
         # additional constraints
         if args.loop_closure:
 
-            for lc in detect_loop_closures(fvs, frames, pred_acc_torch, stepsize=100, temporal_offset=100):
+            for lc in detect_loop_closures(fvs, frames, pred_inbetween_torch, calibration_matrix, method="nearest_neighbor", stepsize=10, temporal_offset=10):
 
                 # get lc data
                 i = lc["source_idx"]
@@ -130,13 +135,13 @@ def main():
                 score = lc["combined_score"]
 
                 # build 6DoF transform from 3DoF transform
-                T_reg = threedof_to_sixdof(pred_inbetween_torch[i].numpy(), transform)
+                #T_reg = threedof_to_sixdof(pred_inbetween_torch[i].numpy(), transform)
 
                 # add constraint
                 pred_graph.add_constraint(
                     i,
                     j,
-                    T_reg,
+                    transform,
                     registration_noise_model(score) # noise according to confidence
                 )
 

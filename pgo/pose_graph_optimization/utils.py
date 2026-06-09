@@ -19,7 +19,7 @@ def pose3_to_mat4(pose):
 
 def mat4_to_pose3(T):
 
-    T = T.cpu().numpy()
+    #T = T.cpu().numpy()
 
     R = gtsam.Rot3(T[:3, :3])
     t = gtsam.Point3(*T[:3, 3])
@@ -90,7 +90,7 @@ def threedof_to_sixdof(T_ref: np.ndarray, T_2d: np.ndarray):
 
     rot_ref = Rotation.from_matrix(R_ref)
 
-    rot_new = R_delta * rot_ref
+    rot_new = R_delta * rot_ref # adjust ref R by reg R
 
     T_new[:3, :3] = rot_new.as_matrix()
 
