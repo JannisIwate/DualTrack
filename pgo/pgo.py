@@ -5,56 +5,32 @@ import h5py
 import argparse
 import numpy as np
 import pandas as pd
+from omegaconf import OmegaConf
 
 sys.path.append(os.getcwd())
 sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
-[sys.path.append(i) for i in ['.', '..']]
+[sys.path.append(i) for i in [".", ".."]]
 
 from pose_graph_optimization.graph import *
 from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
-from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings
+from src.utils.pose import (
+    get_drift_metrics,
+    get_ddf_metrics,
+    get_global_and_relative_gt_trackings,
+)
 from pose_graph_optimization.image_registration import register
 
 
 def parse_arguments():
-
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument(
-        "-ip", "--input_pred",
-        type=str,
+        "--config",
+        "-c",
         required=True,
-        help="Path to the data directory containing pred data (export.h5 files)"
-    )
-    parser.add_argument(
-        "-ig", "--input_gt",
-        type=str,
-        help="Path to the data directory containing gt data (export.h5 files)"
-    )
-    parser.add_argument(
-        "-o", "--output_dir",
-        type=str,
-        help="Path to the output directory for saving results"
-    )
-    parser.add_argument(
-        "--loop_closure", "--lc",
-        action="store_true",
-        dest="loop_closure",
-        help="Enable loop closure detection during graph optimization"
-    )
-    parser.add_argument(
-        "--image_registration", "--ir",
-        action="store_true",
-        dest="image_registration",
-        help="Enable image registration for additional constraint refinement"
-    )
-    parser.add_argument(
-        "--optical_flow", "--of",
-        action="store_true",
-        dest="optical_flow",
-        help="Enable optical flow-based constraints in the graph"
+        type=str
     )
 
     return parser.parse_args()
@@ -63,143 +39,170 @@ def parse_arguments():
 def main():
 
     args = parse_arguments()
+    config = OmegaConf.load(args.config)
+
+    OmegaConf.resolve(config)
+
+    input_pred = config.dirs.input_pred
+    input_gt = config.dirs.input_gt
+    output_dir = config.dirs.output_dir
+
+    if not input_pred:
+        raise ValueError("dirs.input_pred must be specified in the config file.")
     
-    data_path = args.input_pred
-    
+    if not input_gt:
+        raise ValueError("dirs.input_gt must be specified in the config file.")
+
+    if not output_dir:
+        raise ValueError("dirs.output_dir must be specified in the config file.")
+
     drift_metrics_original = []
     drift_metrics_after_pgo = []
 
     ddf_metrics_original = []
     ddf_metrics_after_pgo = []
 
-    for el in os.listdir(data_path):
-        sweep_path = os.path.join(data_path, el, "export.h5")
+    for el in os.listdir(input_pred):
+
+        sweep_path = os.path.join(input_pred, el, "export.h5")
+
+        if not os.path.isfile(sweep_path):
+            continue
 
         with h5py.File(sweep_path, "r") as f:
 
-            ## load data
+            # load data
             pred_acc = np.array(f["pred_tracking"])
 
-            if args.input_gt is not None:
-                with h5py.File(os.path.join(args.input_gt, el+".h5"), "r") as f_gt:
+            if input_gt:
+
+                gt_file = os.path.join(input_gt, f"{el}.h5")
+
+                with h5py.File(gt_file, "r") as f_gt:
                     gt = np.array(f_gt["tracking"])
                     gt_acc, gt_inbetween = get_global_and_relative_gt_trackings(gt)
-            else:    
+
+            else:
+
                 gt_acc = np.array(f["gt_tracking"])
                 gt_inbetween = compute_inbetween_transforms(gt_acc)
 
-            # load auxiliary data from sweep
+            # load auxiliary data
             calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
             fvs = np.array(f["fvs"])
             frames = np.array(f["images"])
-        
             dimensions = np.array(f["dimensions"])
-            # print(f.keys())
-            # print(f"pixel_to_image:\n {np.array(f['pixel_to_image'])}")
-            # print(f"spacing\n: {np.array(f['spacing'])}")
-            # print(f"gt_tracking\n: {np.array(f['gt_tracking'][2])}")
-            # breakpoint()
 
-        image_shape_hw = tuple(dimensions[:2])  # (height, width)  
-        
+        image_shape_hw = tuple(dimensions[:2])
+
         # reformat
         pred_inbetween = compute_inbetween_transforms(pred_acc)
+
         pred_acc_torch = torch.from_numpy(pred_acc).float()
         gt_acc_torch = torch.from_numpy(gt_acc).float()
 
         pred_inbetween_torch = torch.from_numpy(pred_inbetween).float()
         gt_inbetween_torch = torch.from_numpy(gt_inbetween).float()
-                    
-        # sanity check
-        # reconstructed = pred_acc[9] @ pred_inbetween[10]
-        # print("\nReconstruction error (should be near zero):")
-        # print(np.abs(reconstructed - pred_acc[10]).max())
 
-        ## build graphs
-        # create graph
+        # build graph
         pred_graph = PoseGraph(
             poses=pred_acc_torch,
             constraints=pred_inbetween_torch,
-            initial_pose=pred_acc_torch[0]
+            initial_pose=pred_acc_torch[0],
         )
 
-        # additional constraints
-        if args.loop_closure:
+        # loop closure constraints
+        if "loop_closure" in config:
 
-            for lc in detect_loop_closures(fvs, frames, pred_inbetween_torch, calibration_matrix, method="nearest_neighbor", stepsize=10, temporal_offset=10):
+            loop_closures = detect_loop_closures(
+                feature_vectors=fvs,
+                frames=frames,
+                transforms=pred_inbetween_torch,
+                pixel_to_image=calibration_matrix,
+                method=config.loop_closure.method,
+                stepsize=config.loop_closure.stepsize,
+                temporal_offset=config.loop_closure.temporal_offset,
+                threshold=config.loop_closure.threshold,
+                n_neighbors=config.loop_closure.n_neighbors
+            )
 
-                # get lc data
+            for lc in loop_closures:
+
                 i = lc["source_idx"]
                 j = lc["target_idx"]
-                transform = lc["transform"] # 3DoF
+                transform = lc["transform"]
                 score = lc["combined_score"]
 
-                # build 6DoF transform from 3DoF transform
-                #T_reg = threedof_to_sixdof(pred_inbetween_torch[i].numpy(), transform)
-
-                # add constraint
                 pred_graph.add_constraint(
                     i,
                     j,
                     transform,
-                    registration_noise_model(score) # noise according to confidence
+                    registration_noise_model(confidence=score, ref_sigma=config.loop_closure.ref_values_sigma),
                 )
 
-        if args.image_registration:
+        if "image_registration" in config:
             # Implement image registration logic here
             pass
-        if args.optical_flow:
+
+        if "optical_flow" in config:
             # Implement optical flow logic here
             pass
-            
-        # get optimized trajectory
+
+        # optimize graph
         pred_graph_gtsam, _, pred_optimized = pred_graph.build_graph()
 
-        ## metrics
-        # drift metrics
-        drift_metrics_pred_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), pred_acc_torch.numpy())
-        drift_metrics_original.append(drift_metrics_pred_vs_gt)
+        optimized_pred = gtsam_values_to_torch(pred_optimized).numpy()
 
-        optimized_pred_torch = gtsam_values_to_torch(pred_optimized).numpy()
-        drift_metrics_optimized_vs_gt = get_drift_metrics(gt_acc_torch.numpy(), optimized_pred_torch)
+        # drift metrics
+        drift_metrics_pred_vs_gt = get_drift_metrics(
+            gt_acc_torch.numpy(),
+            pred_acc_torch.numpy(),
+        )
+
+        drift_metrics_optimized_vs_gt = get_drift_metrics(
+            gt_acc_torch.numpy(),
+            optimized_pred,
+        )
+
+        drift_metrics_original.append(drift_metrics_pred_vs_gt)
         drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
 
-        # TODO: Returns slightly different results than DT, why???
         # ddf metrics
         ddf_metrics_pred_vs_gt = get_ddf_metrics(
-                pred_acc_torch,
-                pred_inbetween_torch,
-                gt_acc_torch,
-                gt_inbetween_torch,
-                calibration_matrix,
-                image_shape_hw,
-                mode="5pt-landmark",
-            )
+            pred_acc_torch,
+            pred_inbetween_torch,
+            gt_acc_torch,
+            gt_inbetween_torch,
+            calibration_matrix,
+            image_shape_hw,
+            mode="5pt-landmark",
+        )
+
         ddf_metrics_optimized_vs_gt = get_ddf_metrics(
-                optimized_pred_torch,
-                compute_inbetween_transforms(optimized_pred_torch),
-                gt_acc_torch,
-                gt_inbetween_torch,
-                calibration_matrix,
-                image_shape_hw,
-                mode="5pt-landmark",
-            )
+            optimized_pred,
+            compute_inbetween_transforms(optimized_pred),
+            gt_acc_torch,
+            gt_inbetween_torch,
+            calibration_matrix,
+            image_shape_hw,
+            mode="5pt-landmark",
+        )
+
         ddf_metrics_original.append(ddf_metrics_pred_vs_gt)
         ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
-        #break
-    
-    # print and save metrics
+
     print("\nAvg drift metrics (initial pred vs optimized pred):\n")
-    print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo])
+    print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo]
+    )
 
     print("\nAvg DDF metrics (initial pred vs optimized pred):\n")
     print_avg_metrics([ddf_metrics_original, ddf_metrics_after_pgo])
 
     save_results(
-        output_dir=args.output_dir,
+        output_dir=output_dir,
         graph=pred_graph_gtsam,
         initial=pred_acc_torch,
-        optimized=optimized_pred_torch,
+        optimized=optimized_pred,
         metrics_original=[drift_metrics_original, ddf_metrics_original],
         metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo]
     )

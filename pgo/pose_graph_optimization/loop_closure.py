@@ -14,7 +14,7 @@ def detect_loop_closures(
     stepsize=10,
     temporal_offset=50,
     threshold=0.7,
-    n_neighbors=1,
+    n_neighbors=1
 ):
     feature_vectors = np.asarray(feature_vectors, dtype=np.float32)
 

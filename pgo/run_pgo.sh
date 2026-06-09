@@ -7,10 +7,7 @@ cd "$WORKDIR" || exit 1
 ## DualTrack 25
 
 # test
-python pgo.py -ip /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans/ \
-              -ig /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted \
-              -o /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test \
-              --lc
+python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/dt25_tr25_val/config.yaml
 
 # experiment 1
 # python pgo.py -ip /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans/ \
