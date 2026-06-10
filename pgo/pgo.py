@@ -122,8 +122,13 @@ def main():
                 stepsize=config.loop_closure.stepsize,
                 temporal_offset=config.loop_closure.temporal_offset,
                 threshold=config.loop_closure.threshold,
-                n_neighbors=config.loop_closure.n_neighbors
+                n_neighbors=config.loop_closure.n_neighbors,
+                max_metric_change=config.loop_closure.max_metric_change,
+                cross_checking=config.loop_closure.cross_checking,
+                max_cross_change=config.loop_closure.max_cross_change
             )
+
+            print(f"nr of valid LCs found: {len(loop_closures)}")
 
             for lc in loop_closures:
 

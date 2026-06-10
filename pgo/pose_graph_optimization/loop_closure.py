@@ -14,7 +14,10 @@ def detect_loop_closures(
     stepsize=10,
     temporal_offset=50,
     threshold=0.7,
-    n_neighbors=1
+    n_neighbors=1,
+    max_metric_change=20,
+    cross_checking=True,
+    max_cross_change=1
 ):
     feature_vectors = np.asarray(feature_vectors, dtype=np.float32)
 
@@ -46,7 +49,10 @@ def detect_loop_closures(
                 transform, _,  reg_score = register(
                     frame_i=frames[i],
                     frame_j=frames[j],
-                    transform=transforms[i]
+                    transform=transforms[i],
+                    cross_checking=True,
+                    max_metric_change=max_metric_change
+                    max_cross_change=max_cross_change
                 )
 
                 loop_closures.append(
@@ -92,7 +98,9 @@ def detect_loop_closures(
                 transform, _, rating = register(
                     frame_i=frames[i],
                     frame_j=frames[j],
-                    transform=transforms[i]
+                    transform=transforms[i],
+                    cross_checking=cross_checking,
+                    max_cross_change=max_cross_change
                 )
                 # print(reg_score)
                 # print(score)

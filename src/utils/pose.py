@@ -68,16 +68,18 @@ def get_ddf_metrics(
 
     points_list = dense_displacement_field.make_image_points(H, W, mode=mode)
 
-    pred_tracking_glob = torch.tensor(pred_tracking_glob).float()
-    #print("pred_tracking_glob[2]:\n", pred_tracking_glob[2])
-    gt_tracking_glob = torch.tensor(gt_tracking_glob).float()
-    #print("gt_tracking_glob[2]:\n", gt_tracking_glob[2])
-    pred_tracking_loc = torch.tensor(pred_tracking_loc).float()
-    gt_tracking_local = torch.tensor(gt_tracking_loc).float()
-    calibration_matrix = torch.tensor(calibration_matrix).float()
-    #print("calibration_matrix:\n", calibration_matrix)
+    pred_tracking_glob = torch.as_tensor(pred_tracking_glob).float()
+    #pred_tracking_glob = pred_tracking_glob.clone().detach()
+    gt_tracking_glob = torch.as_tensor(gt_tracking_glob).float()
+    #gt_tracking_glob = gt_tracking_glob.clone().detach()
+    pred_tracking_loc = torch.as_tensor(pred_tracking_loc).float()
+    #pred_tracking_loc = pred_tracking_loc.clone().detach()
+    gt_tracking_loc = torch.as_tensor(gt_tracking_loc).float()
+    #gt_tracking_loc = gt_tracking_loc.clone().detach()
+    calibration_matrix = torch.as_tensor(calibration_matrix).float()
+    #calibration_matrix = calibration_matrix.clone().detach()
     # permutation = torch.tensor(permutation).float()
-    points_list = torch.tensor(points_list).float()
+    points_list = torch.as_tensor(points_list).float()
     
 
     pred_global_ddf = dense_displacement_field.cal_global_allpts(
@@ -92,7 +94,7 @@ def get_ddf_metrics(
         pred_tracking_loc[1:], calibration_matrix, points_list
     )
     gt_local_ddf = dense_displacement_field.cal_local_allpts(
-        gt_tracking_local[1:], calibration_matrix, points_list
+        gt_tracking_loc[1:], calibration_matrix, points_list
     )
     # 2. Compute error
     global_err = (((pred_global_ddf - gt_global_ddf) ** 2).sum(1) ** 0.5).mean(-1)
@@ -179,7 +181,7 @@ def dist_from_origin(tracking):
 
 def get_drift_rate(gt_tracking, pred_tracking):
     return (
-        (get_drift(gt_tracking, pred_tracking)) / (dist_from_origin(gt_tracking)) * 100
+        (get_drift(gt_tracking, pred_tracking)) / ((dist_from_origin(gt_tracking)) + 1e-12) * 100 # 1e-12: prevent zero div
     )
 
 
