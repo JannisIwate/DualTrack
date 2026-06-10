@@ -8,7 +8,7 @@ loop_closure:
   stepsize: 10
   temporal_offset: 10
   threshold: 0.9
-  n_neighbors: 3
+  n_neighbors: 5
   ref_values_sigma: 1e4
   max_metric_change: 20 # in %
   cross_checking: true

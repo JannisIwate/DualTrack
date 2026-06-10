@@ -8,10 +8,10 @@ def register(
     frame_i: np.ndarray,
     frame_j: np.ndarray,
     transform: np.ndarray,
-    metric,
     max_metric_change: float,
     max_cross_change,
-    cross_checking
+    cross_checking,
+    metric="mi"
 ):
     # init
     SPACING_X = 0.22938919 # values from DualTrack repo

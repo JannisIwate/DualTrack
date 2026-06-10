@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics.pairwise import cosine_similarity
+import networkx as nx
 
 from .image_registration import register
 
@@ -17,7 +18,8 @@ def detect_loop_closures(
     n_neighbors=1,
     max_metric_change=20,
     cross_checking=True,
-    max_cross_change=1
+    max_cross_change=1,
+    loop_consistency_check=True
 ):
     feature_vectors = np.asarray(feature_vectors, dtype=np.float32)
 
@@ -51,7 +53,7 @@ def detect_loop_closures(
                     frame_j=frames[j],
                     transform=transforms[i],
                     cross_checking=True,
-                    max_metric_change=max_metric_change
+                    max_metric_change=max_metric_change,
                     max_cross_change=max_cross_change
                 )
 
@@ -89,7 +91,6 @@ def detect_loop_closures(
                     continue
 
                 seen_pairs.add(pair)
-
                 score = 1.0 - dist
 
                 if score < threshold:
@@ -100,10 +101,9 @@ def detect_loop_closures(
                     frame_j=frames[j],
                     transform=transforms[i],
                     cross_checking=cross_checking,
+                    max_metric_change=max_metric_change,
                     max_cross_change=max_cross_change
                 )
-                # print(reg_score)
-                # print(score)
 
                 if rating:
                     loop_closures.append(
@@ -119,5 +119,28 @@ def detect_loop_closures(
         raise NotImplementedError(
             f"Method '{method}' not implemented."
         )
+    
+    if loop_consistency_check:
+        cycles = find_cycles(loop_closures)
+
+        print(cycles)
+
+        #TODO finish
 
     return loop_closures
+
+
+def find_cycles(loop_closures):
+
+    G = nx.DiGraph()
+
+    for lc in loop_closures:
+
+        G.add_edge(
+            lc["source_idx"],
+            lc["target_idx"],
+            transform=lc["transform"],
+            score=lc["combined_score"],
+        )
+
+    return list(nx.simple_cycles(G))
