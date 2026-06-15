@@ -1,5 +1,6 @@
 import numpy as np
 import SimpleITK as sitk
+import torch
 from pose_graph_optimization.utils import pose3_to_se2
 from scipy.spatial.transform import Rotation
 
@@ -8,9 +9,9 @@ def register(
     frame_i: np.ndarray,
     frame_j: np.ndarray,
     transform: np.ndarray,
-    max_metric_change: float,
-    max_cross_change,
-    cross_checking,
+    max_metric_change=20,
+    max_cross_change=1,
+    cross_checking=True,
     metric="mi"
 ):
     # init
@@ -108,6 +109,8 @@ def register(
     T_fused = fuse_registration_with_pose(np.array(transform), T)
     confidence = max(0.0, 1.0 - metric_change / max_metric_change)
 
+    print("Image registered")
+
     return T_fused, confidence, rating
 
 
@@ -139,19 +142,37 @@ def fuse_registration_with_pose(T_ref: np.ndarray, T_reg_se2: np.ndarray):
 
 def itk_to_3dof(T_itk):
 
-        angle = T_itk.GetAngle()
-        tx, ty = T_itk.GetTranslation()
+    angle = T_itk.GetAngle()
+    tx, ty = T_itk.GetTranslation()
 
-        c = np.cos(angle)
-        s = np.sin(angle) # equivalent to T_itk.GetMatrix()
+    c = np.cos(angle)
+    s = np.sin(angle) # equivalent to T_itk.GetMatrix()
 
-        T = np.array(
-            [
-                [c, -s, tx],
-                [s,  c, ty],
-                [0,  0,  1],
-            ],
-            dtype=np.float64,
+    T = np.array(
+        [
+            [c, -s, tx],
+            [s,  c, ty],
+            [0,  0,  1],
+        ],
+        dtype=np.float64,
+    )
+
+    return T
+
+
+def sample_random_pairs(elements, num_pairs):
+
+    n = len(elements)
+
+    if n < 2:
+        raise ValueError("Need at least two transforms.")
+    elif num_pairs > n // 2:
+        raise ValueError(
+            "num_pairs cannot exceed n//2."
         )
+    else:
+        perm = torch.randperm(n)
+        idc1 = perm[:num_pairs]
+        idc2 = perm[num_pairs:2 * num_pairs]
 
-        return T
+    return [idc1, idc2], [elements[idc1], elements[idc2]]

@@ -48,7 +48,7 @@ def detect_loop_closures(
                     continue
                 #print(f"lc score: {score}")
 
-                transform, _,  reg_score = register(
+                transform, reg_score, rating = register(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     transform=transforms[i],
@@ -57,14 +57,15 @@ def detect_loop_closures(
                     max_cross_change=max_cross_change
                 )
 
-                loop_closures.append(
-                    {
-                        "source_idx": i,
-                        "target_idx": j,
-                        "combined_score": (score + reg_score) / 2,
-                        "transform": transform,
-                    }
-                )
+                if rating:
+                    loop_closures.append(
+                        {
+                            "source_idx": i,
+                            "target_idx": int(j),
+                            "combined_score": (score + reg_score) / 2,
+                            "transform": transform,
+                        }
+                    )
 
     elif method == "nearest_neighbor":
 
@@ -96,7 +97,7 @@ def detect_loop_closures(
                 if score < threshold:
                     continue
 
-                transform, _, rating = register(
+                transform, reg_score, rating = register(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     transform=transforms[i],
@@ -110,7 +111,7 @@ def detect_loop_closures(
                         {
                             "source_idx": i,
                             "target_idx": int(j),
-                            "combined_score": (score) / 2,
+                            "combined_score": (score + reg_score) / 2,
                             "transform": transform,
                         }
                     )
@@ -121,6 +122,7 @@ def detect_loop_closures(
         )
     
     if loop_consistency_check:
+
         cycles = find_cycles(loop_closures)
 
         print(cycles)

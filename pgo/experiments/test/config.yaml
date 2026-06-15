@@ -3,13 +3,19 @@ dirs:
   input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted
   output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test
 
-loop_closure:
-  method: "nearest_neighbor"
-  stepsize: 10
-  temporal_offset: 10
-  threshold: 0.9
-  n_neighbors: 5
+general:
   ref_values_sigma: 1e4
-  max_metric_change: 20 # in %
-  cross_checking: true
-  max_cross_change: 1 # in mm/°
+
+# loop_closure:
+#   method: "nearest_neighbor"
+#   stepsize: 10
+#   temporal_offset: 10
+#   threshold: 0.9
+#   n_neighbors: 5
+#   ref_values_sigma: 1e4
+#   max_metric_change: 20 # in %
+#   cross_checking: true
+#   max_cross_change: 1 # in mm/°
+
+image_registration:
+  method: "random"

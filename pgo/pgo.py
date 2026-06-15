@@ -15,6 +15,7 @@ from pose_graph_optimization.graph import *
 from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
+from pose_graph_optimization.image_registration import sample_random_pairs, register
 from src.utils.pose import (
     get_drift_metrics,
     get_ddf_metrics,
@@ -141,12 +142,27 @@ def main():
                     i,
                     j,
                     transform,
-                    registration_noise_model(confidence=score, ref_sigma=config.loop_closure.ref_values_sigma),
+                    registration_noise_model(confidence=score, ref_sigma=config.general.ref_values_sigma)
                 )
 
         if "image_registration" in config:
-            # Implement image registration logic here
-            pass
+            
+            indices, pairs = sample_random_pairs(frames, 50)
+
+            for i, _ in enumerate(indices[0]):
+
+                T, confidence, rating = register(frame_i=pairs[0][i],
+                                                frame_j=pairs[1][i],
+                                                transform=pred_inbetween_torch[i]
+                                                )
+                if rating:
+        
+                    pred_graph.add_constraint(
+                        indices[0][i],
+                        indices[1][i],
+                        T,
+                        registration_noise_model(confidence=confidence, ref_sigma=config.general.ref_values_sigma)
+                    )
 
         if "optical_flow" in config:
             # Implement optical flow logic here
