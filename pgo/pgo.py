@@ -15,7 +15,7 @@ from pose_graph_optimization.graph import *
 from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
-from pose_graph_optimization.image_registration import sample_random_pairs, register
+from pose_graph_optimization.image_registration import sample_random_pairs, sample_pairs_by_step, register
 from src.utils.pose import (
     get_drift_metrics,
     get_ddf_metrics,
@@ -147,19 +147,21 @@ def main():
 
         if "image_registration" in config:
             
-            indices, pairs = sample_random_pairs(frames, 50)
+            #idc1, idc2, transforms_1, transforms_2 = sample_random_pairs(frames, 10)
+            idc1, idc2, transforms_1, transforms_2 = sample_pairs_by_step(frames, 100)
 
-            for i, _ in enumerate(indices[0]):
+            for i, _ in enumerate(idc1):
 
-                T, confidence, rating = register(frame_i=pairs[0][i],
-                                                frame_j=pairs[1][i],
-                                                transform=pred_inbetween_torch[i]
+                T, confidence, rating = register(frame_i=transforms_1[i],
+                                                frame_j=transforms_2[i],
+                                                transform=pred_inbetween_torch[i],
+                                                metric="corr"
                                                 )
                 if rating:
         
                     pred_graph.add_constraint(
-                        indices[0][i],
-                        indices[1][i],
+                        idc1[i],
+                        idc2[i],
                         T,
                         registration_noise_model(confidence=confidence, ref_sigma=config.general.ref_values_sigma)
                     )
@@ -210,6 +212,8 @@ def main():
 
         ddf_metrics_original.append(ddf_metrics_pred_vs_gt)
         ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
+
+        break
 
     print("\nAvg drift metrics (initial pred vs optimized pred):\n")
     print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo]

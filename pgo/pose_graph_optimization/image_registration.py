@@ -21,7 +21,7 @@ def register(
     ORIGIN_Y = -52.92463589
     rating = True
 
-    # registration init
+    ## registration init
     x, y, yaw = pose3_to_se2(transform)
 
     initial = sitk.Euler2DTransform()
@@ -60,22 +60,20 @@ def register(
 
     registration.SetInitialTransform(initial)
 
-    # metric before optimization
+    ## register
     metric_before = registration.MetricEvaluate(fixed, moving)
-
-    # optimize
     T_reg = registration.Execute(fixed, moving)
 
     metric_after = registration.GetMetricValue()
 
-    # compare metrics
+    ## compare metrics
     eps = 1e-12 # prevent zero divs
     metric_change = (abs(metric_after - metric_before) / (abs(metric_before) + eps)) * 100.0
 
     if rating:
         rating = (metric_change <= max_metric_change)
 
-    # additional checks
+    ## additional checks
     if cross_checking:
 
         # start from inverse DL transform
@@ -104,7 +102,7 @@ def register(
             if translation_error >= max_cross_change or rotation_error >= max_cross_change:
                 rating = False
 
-    # build registration transform
+    ## build registration transform
     T = itk_to_3dof(T_reg)
     T_fused = fuse_registration_with_pose(np.array(transform), T)
     confidence = max(0.0, 1.0 - metric_change / max_metric_change)
@@ -160,9 +158,9 @@ def itk_to_3dof(T_itk):
     return T
 
 
-def sample_random_pairs(elements, num_pairs):
+def sample_random_pairs(transforms, num_pairs):
 
-    n = len(elements)
+    n = len(transforms)
 
     if n < 2:
         raise ValueError("Need at least two transforms.")
@@ -175,4 +173,30 @@ def sample_random_pairs(elements, num_pairs):
         idc1 = perm[:num_pairs]
         idc2 = perm[num_pairs:2 * num_pairs]
 
-    return [idc1, idc2], [elements[idc1], elements[idc2]]
+    return (
+        idc1,
+        idc2,
+        transforms[idc1],
+        transforms[idc2]
+    )
+
+
+def sample_pairs_by_step(transforms, step_size):
+
+    n = len(transforms)
+
+    idc1 = torch.arange(0, n - step_size, step_size)
+    idc2 = idc1 + step_size
+
+    last_frame = n - 1
+
+    if idc2[-1] != last_frame:
+        idc1 = torch.cat([idc1, idc2[-1].unsqueeze(0)])
+        idc2 = torch.cat([idc2, torch.tensor([last_frame])])
+
+    return (
+        idc1,
+        idc2,
+        transforms[idc1],
+        transforms[idc2]
+    )
