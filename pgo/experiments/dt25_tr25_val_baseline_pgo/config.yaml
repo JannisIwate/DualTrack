@@ -1,0 +1,4 @@
+dirs:
+  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans
+  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted
+  output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/dt25_tr25_val_baseline_pgo

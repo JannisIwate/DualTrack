@@ -1,28 +1,28 @@
 initial:
 
-  final_drift_rate: 77.13747854325862
-  avg_drift_rate: 87.55343506374619
-  max_drift: 16.139081703552126
-  sum_of_drift: 12702.379677196011
+  final_drift_rate: 24.16271908381478
+  avg_drift_rate: 40.85721539280593
+  max_drift: 33.24460494782034
+  sum_of_drift: 10062.74028214937
 
-  avg_global_displacement_error: 10.691197395324707
-  max_global_displacement_error: 18.897628784179688
-  avg_local_displacement_error: 0.17684753239154816
-  max_local_displacement_error: 1.3337256908416748
-  tusrec_final_score: 0.6508302855329182
-  relative_global_err_pct: 0.3808959722518921
+  avg_global_displacement_error: 21.187911987304688
+  max_global_displacement_error: 32.44641876220703
+  avg_local_displacement_error: 0.21065405011177063
+  max_local_displacement_error: 0.7534895539283752
+  tusrec_final_score: 0.5337081804033823
+  relative_global_err_pct: 0.4131157696247101
 
 after pgo:
 
-  final_drift_rate: 66.7580006403574
-  avg_drift_rate: 83.25770704117188
-  max_drift: 17.283863166887624
-  sum_of_drift: 12212.344867707538
+  final_drift_rate: 80.48195506251817
+  avg_drift_rate: 97.58544216893597
+  max_drift: 110.60705446400341
+  sum_of_drift: 27244.04571338198
 
-  avg_global_displacement_error: 13.29037094116211
-  max_global_displacement_error: 29.973133087158203
-  avg_local_displacement_error: 0.21174490451812744
-  max_local_displacement_error: 1.4537227153778076
-  tusrec_final_score: 0.7054667617757209
-  relative_global_err_pct: 0.4043777585029602
+  avg_global_displacement_error: 69.23503875732422
+  max_global_displacement_error: 105.93209075927734
+  avg_local_displacement_error: 0.7993738055229187
+  max_local_displacement_error: 2.2923197746276855
+  tusrec_final_score: 0.49885113037437273
+  relative_global_err_pct: 1.795401692390442
 

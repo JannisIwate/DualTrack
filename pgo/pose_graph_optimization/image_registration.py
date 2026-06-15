@@ -15,27 +15,33 @@ def register(
     metric="mi"
 ):
     # init
-    SPACING_X = 0.22938919 # values from DualTrack repo
+    SPACING_X = 0.22938919 # values from TUSREC, mm per pixel (same for TUSREC24 and 25)
     SPACING_Y = 0.22097969
     ORIGIN_X = -73.28984642
     ORIGIN_Y = -52.92463589
     rating = True
 
     ## registration init
-    x, y, yaw = pose3_to_se2(transform)
-
-    initial = sitk.Euler2DTransform()
-    initial.SetTranslation((float(x), float(y)))
-    initial.SetAngle(float(yaw))
-
     fixed = sitk.GetImageFromArray(frame_i.astype(np.float32))
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
-    fixed.SetSpacing((SPACING_X, SPACING_Y)) # values from DualTrack repo
+    fixed.SetSpacing((SPACING_X, SPACING_Y))
     moving.SetSpacing((SPACING_X, SPACING_Y))
 
     fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
     moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
+
+    x, y, yaw = pose3_to_se2(transform)
+
+    initial = sitk.Euler2DTransform()
+    initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing)
+        fixed,
+        moving,
+        initial,
+        sitk.CenteredTransformInitializerFilter.GEOMETRY,
+    )
+    initial.SetTranslation((float(x), float(y)))
+    initial.SetAngle(float(yaw))
 
     registration = sitk.ImageRegistrationMethod()
 
@@ -107,7 +113,7 @@ def register(
     T_fused = fuse_registration_with_pose(np.array(transform), T)
     confidence = max(0.0, 1.0 - metric_change / max_metric_change)
 
-    print("Image registered")
+    # print("Image registered")
 
     return T_fused, confidence, rating
 

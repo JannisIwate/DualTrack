@@ -22,7 +22,7 @@ cd "$WORKDIR" || exit 1
 # transformer: fusion
 # extras: filtering of first null drift value
 
-python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run --save_predictions --overwrite_log_dir
+#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full.yaml --log_dir experiment/dualtrack_25/tusrec_25_val/validation_run --save_predictions --overwrite_log_dir
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run
 # -> very bad fdr of 73%, avg gpe of 9.1mm (reported in repo), final score of 0.64
@@ -32,12 +32,12 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2
 
 # setup: 10gb ram, 24gb gpu
 # model: dualtrack_ft_tus_rec_2025_v3_best.pt
-# data: tusrec25 val (six scans)
+# data: tusrec24 val
 # config: dualtrack_ft_tus_rec_2025_full_24_data.yaml
 # transformer: fusion
 # extras: filtering of first null drift value
 
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_24_data.yaml --log_dir experiment/dualtrack_25/tusrec_24_val/run_1 --save_predictions
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_24_data.yaml --log_dir experiment/dualtrack_25/tusrec_24_val/run_1 --save_predictions
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1    
 # -> fdr of 28.54%, avg gpe of 24.79mm (worse then DualTrack24?)

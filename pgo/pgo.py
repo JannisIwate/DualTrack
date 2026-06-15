@@ -5,7 +5,9 @@ import h5py
 import argparse
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from omegaconf import OmegaConf
+from itertools import islice
 
 sys.path.append(os.getcwd())
 sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
@@ -62,9 +64,15 @@ def main():
     ddf_metrics_original = []
     ddf_metrics_after_pgo = []
 
-    for el in os.listdir(input_pred):
+    data = os.listdir(input_pred)
+
+    nr_of_scans = OmegaConf.select(config, "general.nr_scans")
+    data = islice(data, nr_of_scans) if nr_of_scans is not None else data
+
+    for el in tqdm(data, desc="Working", total=nr_of_scans):
 
         sweep_path = os.path.join(input_pred, el, "export.h5")
+        print(sweep_path)
 
         if not os.path.isfile(sweep_path):
             continue
@@ -118,18 +126,10 @@ def main():
                 feature_vectors=fvs,
                 frames=frames,
                 transforms=pred_inbetween_torch,
-                pixel_to_image=calibration_matrix,
-                method=config.loop_closure.method,
-                stepsize=config.loop_closure.stepsize,
-                temporal_offset=config.loop_closure.temporal_offset,
-                threshold=config.loop_closure.threshold,
-                n_neighbors=config.loop_closure.n_neighbors,
-                max_metric_change=config.loop_closure.max_metric_change,
-                cross_checking=config.loop_closure.cross_checking,
-                max_cross_change=config.loop_closure.max_cross_change
+                **config.loop_closure
             )
 
-            print(f"nr of valid LCs found: {len(loop_closures)}")
+            # print(f"nr of valid LCs found: {len(loop_closures)}")
 
             for lc in loop_closures:
 
@@ -147,16 +147,22 @@ def main():
 
         if "image_registration" in config:
             
-            #idc1, idc2, transforms_1, transforms_2 = sample_random_pairs(frames, 10)
-            idc1, idc2, transforms_1, transforms_2 = sample_pairs_by_step(frames, 100)
+            idc1, idc2, frames_1, frames_2 = sample_pairs_by_step(frames, 100)
+
+            nr_valid_irs = 0
 
             for i, _ in enumerate(idc1):
 
-                T, confidence, rating = register(frame_i=transforms_1[i],
-                                                frame_j=transforms_2[i],
+                T, confidence, rating = register(frame_i=frames_1[i],
+                                                frame_j=frames_2[i],
                                                 transform=pred_inbetween_torch[i],
-                                                metric="corr"
+                                                **config.image_registration
                                                 )
+                
+                # print(f"confidence: {confidence}")
+                # print(f"transform model: {pred_inbetween_torch[i]}")
+                # print(f"transform IR: {T}")
+
                 if rating:
         
                     pred_graph.add_constraint(
@@ -165,6 +171,9 @@ def main():
                         T,
                         registration_noise_model(confidence=confidence, ref_sigma=config.general.ref_values_sigma)
                     )
+                    nr_valid_irs = nr_valid_irs + 1
+            
+            # print(f"percentage of valid IRs: {(nr_valid_irs / len(idc1)) * 100}%")
 
         if "optical_flow" in config:
             # Implement optical flow logic here
@@ -213,7 +222,7 @@ def main():
         ddf_metrics_original.append(ddf_metrics_pred_vs_gt)
         ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
 
-        break
+        #break
 
     print("\nAvg drift metrics (initial pred vs optimized pred):\n")
     print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo]

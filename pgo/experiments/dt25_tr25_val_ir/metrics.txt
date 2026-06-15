@@ -1,7 +1,7 @@
 initial:
 
-  final_drift_rate: 72.94556188812042
-  avg_drift_rate: 44.56369997438761
+  final_drift_rate: 72.9455618881108
+  avg_drift_rate: 44.540040651624274
   max_drift: 11.862647843259696
   sum_of_drift: 8283.054910581779
 
@@ -14,8 +14,8 @@ initial:
 
 after pgo:
 
-  final_drift_rate: 72.47171632400888
-  avg_drift_rate: 44.59920690788405
+  final_drift_rate: 72.47171632399933
+  avg_drift_rate: 44.5755226513816
   max_drift: 11.851130051493888
   sum_of_drift: 8267.634662339537
 

@@ -1,0 +1,28 @@
+initial:
+
+  final_drift_rate: 23.42141921382372
+  avg_drift_rate: 27.823084823951046
+  max_drift: 32.83341763602322
+  sum_of_drift: 7823.142593078034
+
+  avg_global_displacement_error: 20.23190752665202
+  max_global_displacement_error: 37.509702364603676
+  avg_local_displacement_error: 0.18494081497192383
+  max_local_displacement_error: 0.6380142122507095
+  tusrec_final_score: 0.5754018667008051
+  relative_global_err_pct: 0.3162346879641215
+
+after pgo:
+
+  final_drift_rate: 70.0671915508451
+  avg_drift_rate: 64.40557850949958
+  max_drift: 98.9889048826667
+  sum_of_drift: 22534.370965205173
+
+  avg_global_displacement_error: 60.13750537236532
+  max_global_displacement_error: 107.19166819254558
+  avg_local_displacement_error: 0.3884252111117045
+  max_local_displacement_error: 1.480281208952268
+  tusrec_final_score: 0.595989988265695
+  relative_global_err_pct: 1.0041354273756344
+

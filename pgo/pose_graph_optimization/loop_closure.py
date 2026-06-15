@@ -10,15 +10,12 @@ def detect_loop_closures(
     feature_vectors,
     frames,
     transforms,
-    pixel_to_image,
+    image_registration,
     method="nearest_neighbor",
     stepsize=10,
     temporal_offset=50,
     threshold=0.7,
     n_neighbors=1,
-    max_metric_change=20,
-    cross_checking=True,
-    max_cross_change=1,
     loop_consistency_check=True
 ):
     feature_vectors = np.asarray(feature_vectors, dtype=np.float32)
@@ -52,9 +49,7 @@ def detect_loop_closures(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     transform=transforms[i],
-                    cross_checking=True,
-                    max_metric_change=max_metric_change,
-                    max_cross_change=max_cross_change
+                    **image_registration
                 )
 
                 if rating:
@@ -101,9 +96,7 @@ def detect_loop_closures(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     transform=transforms[i],
-                    cross_checking=cross_checking,
-                    max_metric_change=max_metric_change,
-                    max_cross_change=max_cross_change
+                    **image_registration
                 )
 
                 if rating:
@@ -125,7 +118,7 @@ def detect_loop_closures(
 
         cycles = find_cycles(loop_closures)
 
-        print(cycles)
+        # print(cycles)
 
         #TODO finish
 
