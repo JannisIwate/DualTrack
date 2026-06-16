@@ -11,114 +11,103 @@ def register(
     frame_j: np.ndarray,
     transforms: np.ndarray,
     max_metric_change=20,
-    max_cross_change=1,
-    cross_checking=True,
+    cross_check=True,
     metric="mi"
-):
-    # init
-    SPACING_X = 0.22938919 # values from TUSREC, mm per pixel (same for TUSREC24 and 25)
-    SPACING_Y = 0.22097969
-    ORIGIN_X = -73.28984642
-    ORIGIN_Y = -52.92463589
-    rating = True
+):  
+    ## init
+    valid = True
     T_dl = accumulate(transforms)
+    
+    ## forward registration
+    T_reg_forward, metric_before_forward, metric_after_forward = itk_register(frame_i=frame_i,
+                                                                            frame_j=frame_j,
+                                                                            transform=T_dl,
+                                                                            metric=metric)
 
-    ## registration init
-    fixed = sitk.GetImageFromArray(frame_i.astype(np.float32))
-    moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
-
-    fixed.SetSpacing((SPACING_X, SPACING_Y))
-    moving.SetSpacing((SPACING_X, SPACING_Y))
-
-    fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
-    moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
-
-    # get acc transform from model from frame i to frame j
-    x, y, yaw = pose3_to_se2(T_dl)
-
-    initial = sitk.Euler2DTransform()
-    initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing)
-        fixed,
-        moving,
-        initial,
-        sitk.CenteredTransformInitializerFilter.GEOMETRY,
-    )
-    initial.SetTranslation((float(x), float(y)))
-    initial.SetAngle(float(yaw))
-
-    registration = sitk.ImageRegistrationMethod()
-
-    if metric == "mi":
-        registration.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
-
-    elif metric == "corr":
-        registration.SetMetricAsCorrelation()
-
-    elif metric == "mse":
-        registration.SetMetricAsMeanSquares()
-
-    else:
-        raise ValueError(
-            f"Unknown metric '{metric}'. "
-            "Use 'mi', 'corr' or 'mse'."
-        )
-
-    registration.SetInterpolator(sitk.sitkLinear)
-
-    registration.SetOptimizerAsRegularStepGradientDescent(learningRate=1.0, minStep=1e-4, numberOfIterations=200)
-
-    registration.SetInitialTransform(initial)
-
-    ## register
-    metric_before = registration.MetricEvaluate(fixed, moving)
-    T_reg = registration.Execute(fixed, moving)
-
-    metric_after = registration.GetMetricValue()
-
-    ## compare metrics
+    # check validity
     eps = 1e-12 # prevent zero divs
-    metric_change = (abs(metric_after - metric_before) / (abs(metric_before) + eps)) * 100.0
+    metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
+    valid = (metric_change_forward <= max_metric_change)
 
-    if rating:
-        rating = (metric_change <= max_metric_change)
+    ## cross check, backwards registration
+    if cross_check:
 
-    ## additional checks
-    if cross_checking:
+        T_dl_backwards = np.linalg.inv(T_dl)
+        T_reg_forward, metric_before_forward, metric_after_forward = itk_register(frame_i=frame_j,
+                                                                                frame_j=frame_i,
+                                                                                transform=T_dl_backwards,
+                                                                                metric=metric)
 
-        # start from inverse DL transform
-        x, y, yaw = pose3_to_se2(np.linalg.inv(T_dl))
+        # check validity
+        metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
+        valid = (metric_change_forward <= max_metric_change)
+
+    ## build registration transform
+    T = itk_to_3dof(T_reg_forward)
+    T_fused = fuse_registration_with_pose(T_dl, T)
+
+    confidence = max(0.0, 1.0 - metric_change_forward/100)
+
+    return T_fused, confidence, valid
+
+
+def itk_register(frame_i: np.ndarray,
+                frame_j: np.ndarray,
+                transform: np.ndarray,
+                metric="mi"):
+        ## init
+        # images
+        SPACING_X = 0.22938919 # values from TUSREC, mm per pixel (same for TUSREC24 and 25)
+        SPACING_Y = 0.22097969
+        ORIGIN_X = -73.28984642
+        ORIGIN_Y = -52.92463589
+
+        fixed = sitk.GetImageFromArray(frame_i.astype(np.float32))
+        moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
+
+        fixed.SetSpacing((SPACING_X, SPACING_Y))
+        moving.SetSpacing((SPACING_X, SPACING_Y))
+
+        fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
+        moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
+
+        # initial
+        x, y, yaw = pose3_to_se2(transform)
 
         initial = sitk.Euler2DTransform()
+        initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing)
+            fixed,
+            moving,
+            initial,
+            sitk.CenteredTransformInitializerFilter.GEOMETRY,
+        )
         initial.SetTranslation((float(x), float(y)))
         initial.SetAngle(float(yaw))
 
+        # registration
+        registration = sitk.ImageRegistrationMethod()
+
+        if metric == "mi":
+            registration.SetMetricAsMattesMutualInformation(numberOfHistogramBins=50)
+        elif metric == "corr":
+            registration.SetMetricAsCorrelation()
+        elif metric == "mse":
+            registration.SetMetricAsMeanSquares()
+        else:
+            raise ValueError(
+                f"Unknown metric '{metric}'. "
+                "Use 'mi', 'corr' or 'mse'."
+            )
+        registration.SetInterpolator(sitk.sitkLinear)
+        registration.SetOptimizerAsRegularStepGradientDescent(learningRate=1.0, minStep=1e-4, numberOfIterations=200)
         registration.SetInitialTransform(initial)
 
-        # register
-        fixed_temp = fixed
-        fixed = moving
-        moving = fixed_temp
+        ## register
+        metric_before = registration.MetricEvaluate(fixed, moving)
+        T_reg = registration.Execute(fixed, moving)
+        metric_after = registration.GetMetricValue()
 
-        T_cross = registration.Execute(fixed, moving)
-
-        # compare reg transform and reverse reg transform
-        T_error = itk_to_3dof(T_reg) @ itk_to_3dof(T_cross)
-
-        translation_error = np.linalg.norm(T_error[:2, 2])
-        rotation_error = np.rad2deg(np.arctan2(T_error[1, 0], T_error[0, 0]))
-
-        if rating:
-            if translation_error >= max_cross_change or rotation_error >= max_cross_change:
-                rating = False
-
-    ## build registration transform
-    T = itk_to_3dof(T_reg)
-    T_fused = fuse_registration_with_pose(T_dl, T)
-    confidence = max(0.0, 1.0 - metric_change / max_metric_change)
-
-    # print("Image registered")
-
-    return T_fused, confidence, rating
+        return T_reg, metric_before, metric_after
 
 
 def fuse_registration_with_pose(T_ref: np.ndarray, T_reg_se2: np.ndarray):
@@ -141,7 +130,6 @@ def fuse_registration_with_pose(T_ref: np.ndarray, T_reg_se2: np.ndarray):
 
     # build new rotation (replace init yaw with reg yaw)
     R_fused = Rotation.from_euler("xyz", [roll, pitch, yaw]).as_matrix()
-
     T_fused[:3, :3] = R_fused
 
     return T_fused

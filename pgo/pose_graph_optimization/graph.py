@@ -205,13 +205,13 @@ class PoseGraph:
 
 def registration_noise_model(confidence: float, ref_sigma=1e-2):
 
-    sigma_xy = max(0.5,10.0 * (1.0 - confidence))
-
-    sigma_yaw = np.deg2rad(max(2.0,20.0 * (1.0 - confidence)))
+    sigma_xy = min(2*1e-5, (2*1e-5) * confidence)
+    #sigma_yaw = np.deg2rad(max(2.0,20.0 * (1.0 - confidence)))
+    print(f"sigma: {sigma_xy}")
 
     sigmas = np.array([ref_sigma,       # roll
                        ref_sigma,       # pitch
-                       sigma_yaw, # yaw
+                       sigma_xy,  # yaw
                        sigma_xy,  # x
                        sigma_xy,  # y
                        ref_sigma,       # z

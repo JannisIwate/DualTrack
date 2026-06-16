@@ -148,14 +148,12 @@ def main():
         if "image_registration" in config:
 
             STEP = 100
-            
             idc1, idc2, frames_1, frames_2 = sample_pairs_by_step(frames, STEP)
-
             nr_valid_irs = 0
 
             for i, _ in enumerate(idc1):
 
-                T, confidence, rating = register(frame_i=frames_1[i],
+                T, confidence, valid = register(frame_i=frames_1[i],
                                                 frame_j=frames_2[i],
                                                 transforms=pred_inbetween[i:STEP-1],
                                                 **config.image_registration
@@ -165,7 +163,9 @@ def main():
                 # print(f"transform model: {pred_inbetween_torch[i]}")
                 # print(f"transform IR: {T}")
 
-                if rating:
+                if valid:
+                    
+                    print(f"valid confidence: {confidence}")
         
                     pred_graph.add_constraint(
                         idc1[i],

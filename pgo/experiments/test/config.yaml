@@ -4,11 +4,10 @@ dirs:
   output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test
 
 general:
-  nr_scans: 6
+  nr_scans: 1
   ref_values_sigma: 1e-2
 
 image_registration:
-  metric: "mi"
-  max_metric_change: 20 # in %
-  cross_checking: true
-  max_cross_change: 1 # in mm/°
+  metric: "corr"
+  max_metric_change: 5 # in %
+  cross_check: true
