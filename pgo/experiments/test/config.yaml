@@ -1,17 +1,11 @@
 dirs:
-  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1/scans
-  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted
+  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans
+  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted
   output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test
 
 general:
-  ref_values_sigma: 1e4
-
-loop_closure:
-  method: "nearest_neighbor"
-  stepsize: 10
-  temporal_offset: 10
-  threshold: 0.9
-  n_neighbors: 5
+  nr_scans: 6
+  ref_values_sigma: 1e-2
 
 image_registration:
   metric: "mi"

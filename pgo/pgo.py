@@ -72,7 +72,6 @@ def main():
     for el in tqdm(data, desc="Working", total=nr_of_scans):
 
         sweep_path = os.path.join(input_pred, el, "export.h5")
-        print(sweep_path)
 
         if not os.path.isfile(sweep_path):
             continue
@@ -116,7 +115,7 @@ def main():
         pred_graph = PoseGraph(
             poses=pred_acc_torch,
             constraints=pred_inbetween_torch,
-            initial_pose=pred_acc_torch[0],
+            initial_pose=pred_acc_torch[0]
         )
 
         # loop closure constraints
@@ -145,9 +144,12 @@ def main():
                     registration_noise_model(confidence=score, ref_sigma=config.general.ref_values_sigma)
                 )
 
+        # IR constraints
         if "image_registration" in config:
+
+            STEP = 100
             
-            idc1, idc2, frames_1, frames_2 = sample_pairs_by_step(frames, 100)
+            idc1, idc2, frames_1, frames_2 = sample_pairs_by_step(frames, STEP)
 
             nr_valid_irs = 0
 
@@ -155,7 +157,7 @@ def main():
 
                 T, confidence, rating = register(frame_i=frames_1[i],
                                                 frame_j=frames_2[i],
-                                                transform=pred_inbetween_torch[i],
+                                                transforms=pred_inbetween[i:STEP-1],
                                                 **config.image_registration
                                                 )
                 
@@ -178,6 +180,10 @@ def main():
         if "optical_flow" in config:
             # Implement optical flow logic here
             pass
+
+        if "trajectory_smoothing":
+            pass
+            
 
         # optimize graph
         pred_graph_gtsam, _, pred_optimized = pred_graph.build_graph()

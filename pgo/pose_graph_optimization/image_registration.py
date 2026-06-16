@@ -2,13 +2,14 @@ import numpy as np
 import SimpleITK as sitk
 import torch
 from pose_graph_optimization.utils import pose3_to_se2
+from pose_graph_optimization.utils import accumulate
 from scipy.spatial.transform import Rotation
 
 
 def register(
     frame_i: np.ndarray,
     frame_j: np.ndarray,
-    transform: np.ndarray,
+    transforms: np.ndarray,
     max_metric_change=20,
     max_cross_change=1,
     cross_checking=True,
@@ -20,6 +21,7 @@ def register(
     ORIGIN_X = -73.28984642
     ORIGIN_Y = -52.92463589
     rating = True
+    T_dl = accumulate(transforms)
 
     ## registration init
     fixed = sitk.GetImageFromArray(frame_i.astype(np.float32))
@@ -31,7 +33,8 @@ def register(
     fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
     moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
 
-    x, y, yaw = pose3_to_se2(transform)
+    # get acc transform from model from frame i to frame j
+    x, y, yaw = pose3_to_se2(T_dl)
 
     initial = sitk.Euler2DTransform()
     initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing)
@@ -83,7 +86,7 @@ def register(
     if cross_checking:
 
         # start from inverse DL transform
-        x, y, yaw = pose3_to_se2(np.linalg.inv(transform))
+        x, y, yaw = pose3_to_se2(np.linalg.inv(T_dl))
 
         initial = sitk.Euler2DTransform()
         initial.SetTranslation((float(x), float(y)))
@@ -110,7 +113,7 @@ def register(
 
     ## build registration transform
     T = itk_to_3dof(T_reg)
-    T_fused = fuse_registration_with_pose(np.array(transform), T)
+    T_fused = fuse_registration_with_pose(T_dl, T)
     confidence = max(0.0, 1.0 - metric_change / max_metric_change)
 
     # print("Image registered")

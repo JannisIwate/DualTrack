@@ -4,7 +4,6 @@ dirs:
   output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/dt25_tr25_val_ir
 
 general:
-  ref_values_sigma: 1e4
   nr_scans: 6
 
 image_registration:

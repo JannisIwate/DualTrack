@@ -203,7 +203,7 @@ class PoseGraph:
         return self.optimized
 
 
-def registration_noise_model(confidence: float, ref_sigma=1e6):
+def registration_noise_model(confidence: float, ref_sigma=1e-2):
 
     sigma_xy = max(0.5,10.0 * (1.0 - confidence))
 

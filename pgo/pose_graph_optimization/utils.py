@@ -58,7 +58,19 @@ def gtsam_values_to_torch(values: gtsam.Values, dtype=torch.float32):
         data_list.append(matrix)
 
     stacked = np.stack(data_list, axis=0)
+
     return torch.tensor(stacked, dtype=dtype)
+
+
+def accumulate(inbetween_transforms):
+
+    accumulated = np.eye(4)
+
+    for i in range(len(inbetween_transforms)):
+
+        accumulated = accumulated @ inbetween_transforms[i]
+
+    return accumulated
 
 
 def inbetween_to_accumulated(inbetween_transforms):
@@ -68,6 +80,7 @@ def inbetween_to_accumulated(inbetween_transforms):
         for i in range(len(inbetween_transforms)):
 
             accumulated.append(accumulated[-1] @ inbetween_transforms[i])
+
         return np.stack(accumulated)
 
 
@@ -95,8 +108,6 @@ def threedof_to_sixdof(T_ref: np.ndarray, T_2d: np.ndarray):
     T_new[:3, :3] = rot_new.as_matrix()
 
     return T_new
-
-import numpy as np
 
 
 def pose3_to_se2(T: np.ndarray):

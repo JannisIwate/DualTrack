@@ -48,7 +48,7 @@ def detect_loop_closures(
                 transform, reg_score, rating = register(
                     frame_i=frames[i],
                     frame_j=frames[j],
-                    transform=transforms[i],
+                    transforms=transforms[i],
                     **image_registration
                 )
 
@@ -95,7 +95,7 @@ def detect_loop_closures(
                 transform, reg_score, rating = register(
                     frame_i=frames[i],
                     frame_j=frames[j],
-                    transform=transforms[i],
+                    transforms=transforms[i],
                     **image_registration
                 )
 
