@@ -8,6 +8,8 @@ import pandas as pd
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from itertools import islice
+from matplotlib import pyplot as plt
+import time
 
 sys.path.append(os.getcwd())
 sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
@@ -18,11 +20,8 @@ from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
 from pose_graph_optimization.image_registration import sample_random_pairs, sample_pairs_by_step, register
-from src.utils.pose import (
-    get_drift_metrics,
-    get_ddf_metrics,
-    get_global_and_relative_gt_trackings,
-)
+from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings, plot_pose_differences
+from src.evaluator import plot_pose_differences
 
 
 def parse_arguments():
@@ -112,11 +111,22 @@ def main():
         gt_inbetween_torch = torch.from_numpy(gt_inbetween).float()
 
         # build graph
-        pred_graph = PoseGraph(
-            poses=pred_acc_torch,
-            constraints=pred_inbetween_torch,
-            initial_pose=pred_acc_torch[0]
-        )
+        if "trajectory_smoothing" in config:
+            
+            res = compute_pose_weights(gt_inbetween_torch)
+
+            pred_graph = PoseGraph(
+                poses=pred_acc_torch,
+                constraints=pred_inbetween_torch,
+                initial_pose=pred_acc_torch[0],
+                odom_noise_sigma=res["weights"][:-1]
+            )
+        else:
+            pred_graph = PoseGraph(
+                poses=pred_acc_torch,
+                constraints=pred_inbetween_torch,
+                initial_pose=pred_acc_torch[0]
+            )
 
         # loop closure constraints
         if "loop_closure" in config:
@@ -124,7 +134,7 @@ def main():
             loop_closures = detect_loop_closures(
                 feature_vectors=fvs,
                 frames=frames,
-                transforms=pred_inbetween_torch,
+                transforms=pred_inbetween,
                 **config.loop_closure
             )
 
@@ -147,44 +157,68 @@ def main():
         # IR constraints
         if "image_registration" in config:
 
-            STEP = 100
-            idc1, idc2, frames_1, frames_2 = sample_pairs_by_step(frames, STEP)
+            STEP = 10
+            idc1, idc2, ir_ref_transforms, ir_gt_transforms = sample_pairs_by_step(frames, pred_acc_torch, gt_acc_torch, STEP)
             nr_valid_irs = 0
 
-            for i, _ in enumerate(idc1):
+            metric_before_list = []
+            metric_before_gt_list = []
+            metric_before_pred_list = []
+            metric_after_list = []
+            ir_execution_time_list = []
+            ir_transforms = []
 
-                T, confidence, valid = register(frame_i=frames_1[i],
-                                                frame_j=frames_2[i],
-                                                transforms=pred_inbetween[i:STEP-1],
-                                                **config.image_registration
-                                                )
+            for i, _ in enumerate(frames[idc1]):
+
+                start_time = time.time()
+                transform_ir, confidence, valid, metric_before_identity, metric_before_gt, metric_before_pred, metric_after = register(frame_i=frames[idc1][i],
+                                                                                        frame_j=frames[idc2][i],
+                                                                                        ref_transform=ir_ref_transforms[i].numpy(),
+                                                                                        gt_transform=ir_gt_transforms[i].numpy(),
+                                                                                        **config.image_registration
+                                                                                        )
+                ir_execution_time = time.time() - start_time
+                
+                metric_before_list.append(metric_before_identity)
+                metric_before_gt_list.append(metric_before_gt)
+                metric_before_pred_list.append(metric_before_pred)
+                metric_after_list.append(metric_after)
+                ir_execution_time_list.append(ir_execution_time)
+                ir_transforms.append(transform_ir)
                 
                 # print(f"confidence: {confidence}")
                 # print(f"transform model: {pred_inbetween_torch[i]}")
                 # print(f"transform IR: {T}")
 
                 if valid:
-                    
-                    print(f"valid confidence: {confidence}")
+
+                    #print(f"valid confidence: {confidence}")
         
                     pred_graph.add_constraint(
                         idc1[i],
                         idc2[i],
-                        T,
+                        transform_ir,
                         registration_noise_model(confidence=confidence, ref_sigma=config.general.ref_values_sigma)
                     )
                     nr_valid_irs = nr_valid_irs + 1
+                #break
             
             # print(f"percentage of valid IRs: {(nr_valid_irs / len(idc1)) * 100}%")
+            print(f"avg ir metric before: {np.average(np.array(metric_before_list))}")
+            print(f"avg ir metric before (gt): {np.average(np.array(metric_before_gt_list))}")
+            print(f"avg ir metric before (pred): {np.average(np.array(metric_before_pred_list))}")
+            print(f"avg ir metric after: {np.average(np.array(metric_after_list))}")
+            print(f"avg ir execution time (s): {np.average(np.array(ir_execution_time_list))}")
+            
+            # plot_pose_differences(ir_gt_transforms, ir_ref_transforms)
+            # plot_pose_differences(ir_gt_transforms, ir_transforms)
+            # plt.show()
+            breakpoint()
 
         if "optical_flow" in config:
             # Implement optical flow logic here
             pass
-
-        if "trajectory_smoothing":
-            pass
             
-
         # optimize graph
         pred_graph_gtsam, _, pred_optimized = pred_graph.build_graph()
 
@@ -245,6 +279,53 @@ def main():
         metrics_original=[drift_metrics_original, ddf_metrics_original],
         metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo]
     )
+
+    # fig = plot_pose_differences(optimized_pred, gt_acc)
+    # plt.show()
+    plot_trajectories([extract_positions(inbetween_to_accumulated(np.array(ir_gt_transforms))),
+                       extract_positions(inbetween_to_accumulated(np.array(ir_ref_transforms))),
+                       extract_positions(inbetween_to_accumulated(np.array(ir_transforms)))],
+                        labels=["GT", "Initial estimated", "IR"],
+                        colors=["blue", "red", "black"])
+
+
+def plot_trajectories(trajectories, labels=None, colors=None):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    n = len(trajectories)
+
+    # defaults
+    if labels is None:
+        labels = [f"traj_{i}" for i in range(n)]
+    if colors is None:
+        colors = [None] * n
+
+    for i, (xs, ys, zs) in enumerate(trajectories):
+        ax.plot(xs, ys, zs,
+                label=labels[i],
+                color=colors[i])
+
+        ax.scatter(xs[0], ys[0], zs[0], color=colors[i])
+        ax.scatter(xs[-1], ys[-1], zs[-1], color=colors[i], marker="s")
+
+    ax.set_title("Pose Graph Trajectories")
+    ax.legend()
+    plt.show()
+
+
+def extract_positions(values):
+
+    xs, ys, zs = [], [], []
+
+    for el in values:
+
+        xs.append(el[0, 3])
+        ys.append(el[1, 3])
+        zs.append(el[2, 3])
+
+    return np.array(xs), np.array(ys), np.array(zs)
 
 
 if __name__ == "__main__":

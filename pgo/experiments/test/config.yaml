@@ -4,10 +4,19 @@ dirs:
   output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test
 
 general:
-  nr_scans: 1
-  ref_values_sigma: 1e-2
+   ref_values_sigma: 1e-1
+   nr_scans: 1
+
+# loop_closure:
+#   method: "nearest_neighbor"
+#   stepsize: 10
+#   temporal_offset: 10
+#   threshold: 0.9
+#   n_neighbors: 5
 
 image_registration:
-  metric: "corr"
-  max_metric_change: 5 # in %
-  cross_check: true
+  metric: "mse"
+  max_metric_change: 20 # in %
+  #cross_check: true
+
+#trajectory_smoothing:

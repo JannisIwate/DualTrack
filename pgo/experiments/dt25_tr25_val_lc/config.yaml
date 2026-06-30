@@ -17,5 +17,4 @@ loop_closure:
   image_registration:
     metric: "mi"
     max_metric_change: 20 # in %
-    cross_checking: true
-    max_cross_change: 1 # in mm/°
+    cross_check: true
