@@ -10,7 +10,7 @@ def detect_loop_closures(
     feature_vectors,
     frames,
     transforms,
-    image_registration,
+    image_registration_cfg,
     method="nearest_neighbor",
     stepsize=10,
     temporal_offset=50,
@@ -49,7 +49,7 @@ def detect_loop_closures(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     ref_transform=transforms,
-                    **image_registration
+                    **image_registration_cfg
                 )
 
                 if rating:
@@ -96,7 +96,7 @@ def detect_loop_closures(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     ref_transform=transforms[i:j-1],
-                    **image_registration
+                    **image_registration_cfg
                 )
 
                 if rating:

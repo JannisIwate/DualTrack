@@ -1,9 +1,8 @@
 import numpy as np
 import SimpleITK as sitk
-import torch
 from matplotlib import pyplot as plt
-from pose_graph_optimization.utils import pose3_to_se2
 from pose_graph_optimization.utils import accumulate
+from pose_graph_optimization.utils import pose3_to_se2
 from scipy.spatial.transform import Rotation
 
 
@@ -12,58 +11,89 @@ def register(
     frame_j: np.ndarray,
     ref_transform: np.ndarray,
     gt_transform: np.ndarray,
-    max_metric_change=20,
-    cross_check=False,
-    metric="mi"
-):  
+    max_metric_change: float = 20,
+    cross_check: bool = False,
+    metric: str = "mi",
+) -> tuple[
+    np.ndarray,
+    float,
+    bool,
+    float,
+    float,
+    float,
+    float,
+]:
     ## init
     valid = True
     
     ## forward registration
-    T_reg_forward, metric_before_forward, metric_before_gt_forward, metric_before_pred_forward, metric_after_forward = itk_register(frame_i=frame_i,
-                                                                            frame_j=frame_j,
-                                                                            ref_transform=ref_transform,
-                                                                            gt_transform=gt_transform,
-                                                                            metric=metric)
+    (
+        T_reg_forward,
+        metric_before_forward,
+        metric_before_gt_forward,
+        metric_before_pred_forward,
+        metric_after_forward
+     ) = itk_register(frame_i=frame_i,
+                    frame_j=frame_j,
+                    ref_transform=ref_transform,
+                    gt_transform=gt_transform,
+                    metric=metric)
 
     # check validity
     eps = 1e-12 # prevent zero divs
     metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
     valid = (metric_change_forward <= max_metric_change)
-    ir_execution_time = 0
 
     ## cross check, backwards registration
     if cross_check:
 
         T_dl_backwards = np.linalg.inv(ref_transform)
-        T_reg_forward, metric_before_forward, metric_after_forward = itk_register(frame_i=frame_j,
-                                                                                frame_j=frame_i,
-                                                                                ref_transform=T_dl_backwards,
-                                                                                gt_transform=gt_transform,
-                                                                                metric=metric)
+        (
+            T_reg_forward,
+            metric_before_forward,
+            _,
+            _,
+            metric_after_forward,
+        ) = itk_register(
+            frame_i=frame_j,
+            frame_j=frame_i,
+            ref_transform=T_dl_backwards,
+            gt_transform=gt_transform,
+            metric=metric,
+        )
 
         # check validity
         metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
         valid = (metric_change_forward <= max_metric_change)
 
     ## build registration transform
-    T = itk_to_3dof(T_reg_forward)
-    T_fused = fuse_registration_with_pose(ref_transform, T)
-
-    # print(f"transform_reg:\n {T_fused}")
-    # print(f"ref_transform:\n {ref_transform}")
-    # print("\n")
-
+    T_fused = fuse_registration_with_pose(ref_transform, T_reg_forward)
     confidence = max(0.0, 1.0 - metric_change_forward/100)
 
-    return T_fused, confidence, valid, metric_before_forward, metric_before_gt_forward, metric_before_pred_forward, metric_after_forward
+    return [
+        T_fused,
+        confidence,
+        valid,
+        metric_before_forward,
+        metric_before_gt_forward,
+        metric_before_pred_forward,
+        metric_after_forward
+    ] 
 
 
-def itk_register(frame_i: np.ndarray,
-                frame_j: np.ndarray,
-                ref_transform: np.ndarray,
-                gt_transform: np.ndarray,
-                metric="mi"):
+def itk_register(
+    frame_i: np.ndarray,
+    frame_j: np.ndarray,
+    ref_transform: np.ndarray,
+    gt_transform: np.ndarray,
+    metric: str = "mi",
+) -> tuple[
+    np.ndarray,
+    float,
+    float,
+    float,
+    float,
+]:
     ## init
     # images
     SPACING_X = 0.22938919 # values from TUSREC, mm per pixel (same for TUSREC24 and 25)
@@ -97,6 +127,17 @@ def itk_register(frame_i: np.ndarray,
     registration.SetInterpolator(sitk.sitkLinear)
     registration.SetOptimizerAsRegularStepGradientDescent(learningRate=0.1, minStep=1e-4, numberOfIterations=15)
 
+    # def iteration_callback():
+    #     print(
+    #         f"Iteration: {registration.GetOptimizerIteration():3d}, "
+    #         f"Metric: {registration.GetMetricValue():.6f}"
+    #     )
+
+    # registration.AddCommand(
+    #     sitk.sitkIterationEvent,
+    #     iteration_callback
+    # )
+
     # initial
     initial = sitk.Euler2DTransform()
     initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing)
@@ -127,26 +168,8 @@ def itk_register(frame_i: np.ndarray,
     metric_before_identity = registration.MetricEvaluate(fixed, moving)
 
     ## register
-    # def iteration_callback():
-    #     print(
-    #         f"Iteration: {registration.GetOptimizerIteration():3d}, "
-    #         f"Metric: {registration.GetMetricValue():.6f}"
-    #     )
-
-    # registration.AddCommand(
-    #     sitk.sitkIterationEvent,
-    #     iteration_callback
-    # )
-
-    #print("execute IR...")
     transform_reg = registration.Execute(fixed, moving)
     metric_after = registration.GetMetricValue()
-
-    # print(f"metric before: {metric_before}")
-    # print(f"metric after: {metric_after}")
-
-    # print(f"min pixel value: {np.min(fixed)}")
-    # print(f"max pixel value: {np.max(fixed)}")
 
     # registering an image on itself with identity transform: error of 0, passt
     # normal pipeline: rather large error, no great improvement even though images look fine
@@ -164,9 +187,7 @@ def itk_register(frame_i: np.ndarray,
     # IR takes longer the closer frames are (Why?)
     # errors happen near the transducer and along long edges
 
-
-    #breakpoint()
-
+    ## check result
     registered_image = sitk.Resample(
         moving,
         fixed,
@@ -183,27 +204,35 @@ def itk_register(frame_i: np.ndarray,
     moving_val = moving[x, y]
     reg_val = registered_image[x, y]
 
-    print(moving_val)
-    print(reg_val)
-    print((moving_val - reg_val) ** 2)
-    print(error_np[y, x])
+    # print(moving_val)
+    # print(reg_val)
+    # print((moving_val - reg_val) ** 2)
+    # print(error_np[y, x])
 
-    plt.imshow(error_np, cmap="hot")
-    plt.colorbar()
-    image_plot(moving, title="moving")
-    image_plot(registered_image, title="image after IR transform")
-    plt.show()
-    breakpoint()
+    # plt.imshow(error_np, cmap="hot")
+    # plt.colorbar()
+    # image_plot(moving, title="moving")
+    # image_plot(registered_image, title="image after IR transform")
+    # plt.show()
+    #breakpoint()
 
     # image_plot(fixed, title="fixed")
     # image_plot(moving, title="moving")
     # image_plot(registered_image_init, title="init transform")
     # plt.show()
     
-    return transform_reg, metric_before_identity, metric_before_gt, metric_before_pred, metric_after
+    T_reg = sitk_to_3dof(transform_reg)
+
+    return (
+        T_reg,
+        float(metric_before_identity),
+        float(metric_before_gt),
+        float(metric_before_pred),
+        float(metric_after),
+)
 
 
-def image_plot(img, title=None, margin=0.05, dpi=80):
+def image_plot(img, title=None, margin=0.05, dpi=80): # img is sitk image
         
         nda = sitk.GetArrayViewFromImage(img)
         spacing = img.GetSpacing()
@@ -226,7 +255,7 @@ def image_plot(img, title=None, margin=0.05, dpi=80):
             plt.title(title)
 
 
-def fuse_registration_with_pose(T_ref: np.ndarray, T_reg_se2: np.ndarray):
+def fuse_registration_with_pose(T_ref: np.ndarray, T_reg_se2: np.ndarray) -> np.ndarray:
 
     T_fused = T_ref.copy()
 
@@ -244,14 +273,14 @@ def fuse_registration_with_pose(T_ref: np.ndarray, T_reg_se2: np.ndarray):
     R_ref = Rotation.from_matrix(T_ref[:3, :3])
     roll, pitch, _ = R_ref.as_euler("xyz")
 
-    # build new rotation (replace init yaw with reg yaw)
+    # build new rotation
     R_fused = Rotation.from_euler("xyz", [roll, pitch, yaw]).as_matrix()
     T_fused[:3, :3] = R_fused
 
     return T_fused
 
 
-def itk_to_3dof(T_itk):
+def sitk_to_3dof(T_itk) -> np.ndarray:
 
     angle = T_itk.GetAngle()
     tx, ty = T_itk.GetTranslation()
@@ -271,52 +300,39 @@ def itk_to_3dof(T_itk):
     return T
 
 
-def sample_random_pairs(transforms, num_pairs):
-
-    n = len(transforms)
-
-    if n < 2:
-        raise ValueError("Need at least two transforms.")
-    elif num_pairs > n // 2:
-        raise ValueError(
-            "num_pairs cannot exceed n//2."
-        )
-    else:
-        perm = torch.randperm(n)
-        idc1 = perm[:num_pairs]
-        idc2 = perm[num_pairs:2 * num_pairs]
-
-    return (
-        idc1,
-        idc2,
-        transforms[idc1],
-        transforms[idc2]
-    )
-
-
-def sample_pairs_by_step(frames, acc_transforms_all, gt_acc_transforms_all, step_size):
-
+# TODO: Add random sampling
+def sample_pairs_by_step(
+    frames: np.ndarray,
+    acc_transforms_all: np.ndarray,
+    gt_acc_transforms_all: np.ndarray,
+    step_size: int
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    list[np.ndarray],
+    list[np.ndarray],
+]:
     n = len(frames)
 
-    idc1 = torch.arange(0, n - step_size, step_size)
+    idc1 = np.arange(0, n - step_size, step_size)
     idc2 = idc1 + step_size
 
     last_frame = n - 1
 
     if idc2[-1] != last_frame:
-        idc1 = torch.cat([idc1, idc2[-1].unsqueeze(0)])
-        idc2 = torch.cat([idc2, torch.tensor([last_frame])])
+        idc1 = np.concatenate([idc1, [idc2[-1]]])
+        idc2 = np.concatenate([idc2, [last_frame]])
 
     ref_transforms = []
     gt_transforms = []
 
-    for i, _ in enumerate(idc1):
-        ref_transforms.append(torch.matmul(torch.inverse(acc_transforms_all[idc1[i]]), acc_transforms_all[idc2[i]]))
-        gt_transforms.append(torch.matmul(torch.inverse(gt_acc_transforms_all[idc1[i]]), gt_acc_transforms_all[idc2[i]]))
+    for i in range(len(idc1)):
+        ref_transforms.append(np.linalg.inv(acc_transforms_all[idc1[i]]) @ acc_transforms_all[idc2[i]])
+        gt_transforms.append(np.linalg.inv(gt_acc_transforms_all[idc1[i]]) @ gt_acc_transforms_all[idc2[i]])
 
     return (
         idc1,
         idc2,
         ref_transforms,
-        gt_transforms
+        gt_transforms,
     )
