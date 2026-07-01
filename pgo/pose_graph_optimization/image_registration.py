@@ -186,6 +186,7 @@ def itk_register(
     # IR is "too good", MSE is better with IR then with GT transform
     # IR takes longer the closer frames are (Why?)
     # errors happen near the transducer and along long edges
+    # transforms found by IR differ greatly from GT, even though images look fine
 
     ## check result
     registered_image = sitk.Resample(

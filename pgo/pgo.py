@@ -70,6 +70,7 @@ def main():
     data = os.listdir(input_pred)
 
     nr_of_scans = OmegaConf.select(config, "general.nr_scans")
+    
     data = islice(data, nr_of_scans) if nr_of_scans is not None else data
 
     ## apply pgo to data scans
@@ -82,27 +83,33 @@ def main():
             continue
 
         with h5py.File(sweep_path, "r") as f:
+
+            nr_of_frames= OmegaConf.select(config, "general.nr_frames")
+            if nr_of_frames is None:
+                nr_of_frames = len(f["images"]) + 1
+            else:
+                nr_of_frames += 1
             
             # load scan data
-            pred_acc = np.array(f["pred_tracking"])
+            pred_acc = np.array(f["pred_tracking"][:nr_of_frames])
 
             if input_gt:
 
                 gt_file = os.path.join(input_gt, f"{el}.h5")
 
                 with h5py.File(gt_file, "r") as f_gt:
-                    gt = np.array(f_gt["tracking"])
+                    gt = np.array(f_gt["tracking"][:nr_of_frames])
                     gt_acc, gt_inbetween = get_global_and_relative_gt_trackings(gt)
 
             else:
 
-                gt_acc = np.array(f["gt_tracking"])
+                gt_acc = np.array(f["gt_tracking"][:nr_of_frames])
                 gt_inbetween = compute_inbetween_transforms(gt_acc)
 
             # load auxiliary data
             calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
             fvs = np.array(f["fvs"])
-            frames = np.array(f["images"])
+            frames = np.array(f["images"][:nr_of_frames])
             dimensions = np.array(f["dimensions"])
 
         image_shape_hw = tuple(dimensions[:2])
@@ -114,14 +121,9 @@ def main():
         # smoothing edges
         if "trajectory_smoothing" in config:
             
+            pass
             # TODO: implement trajectory smoothing
 
-            pred_graph = PoseGraph(
-                poses=pred_acc,
-                constraints=pred_inbetween,
-                initial_pose=pred_acc[0],
-                odom_noise_sigma=res["weights"][:-1]
-            )
         else:
             pred_graph = PoseGraph(
                 poses=pred_acc,
