@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from pose_graph_optimization.utils import accumulate
 from pose_graph_optimization.utils import pose3_to_se2
 from scipy.spatial.transform import Rotation
+from src.submission.tus_rec_challenge_baseline import transform
 
 
 def register(
@@ -23,10 +24,14 @@ def register(
     float,
     float,
 ]:
-    ## init
+    # --------------------------------------------------------
+    # init
+    # --------------------------------------------------------
     valid = True
     
-    ## forward registration
+    # --------------------------------------------------------
+    # forward registration
+    # --------------------------------------------------------
     (
         T_reg_forward,
         metric_before_forward,
@@ -44,7 +49,9 @@ def register(
     metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
     valid = (metric_change_forward <= max_metric_change)
 
-    ## cross check, backwards registration
+    # --------------------------------------------------------
+    # cross check, backwards registration
+    # --------------------------------------------------------
     if cross_check:
 
         T_dl_backwards = np.linalg.inv(ref_transform)
@@ -66,8 +73,11 @@ def register(
         metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
         valid = (metric_change_forward <= max_metric_change)
 
-    ## build registration transform
-    T_fused = fuse_registration_with_pose(ref_transform, T_reg_forward)
+
+    # --------------------------------------------------------
+    # build registration transform
+    # --------------------------------------------------------
+    T_fused = fuse_3dof_with_6dof(ref_transform, T_reg_forward)
     confidence = max(0.0, 1.0 - metric_change_forward/100)
 
     return [
@@ -94,14 +104,17 @@ def itk_register(
     float,
     float,
 ]:
-    ## init
-    # images
-    SPACING_X = 0.22938919 # values from TUSREC, mm per pixel (same for TUSREC24 and 25)
+    # --------------------------------------------------------
+    # init
+    # --------------------------------------------------------
+
+    ## images
+    SPACING_X = 0.22938919 # values from TUSREC, mm per pixel (same for TUSREC24 and 25), needed so that transform is in mm and not pixels
     SPACING_Y = 0.22097969
-    ORIGIN_X = -73.28984642
+    ORIGIN_X = -73.28984642 # origin of pixel coord system is upper left corner, so negativ values for center of image
     ORIGIN_Y = -52.92463589
 
-    fixed = sitk.GetImageFromArray(frame_i.astype(np.float32))
+    fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 480x640 (x, y), other way round for sitk!
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
     fixed.SetSpacing((SPACING_X, SPACING_Y))
@@ -110,7 +123,7 @@ def itk_register(
     fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
     moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
 
-    # registration
+    ## registration
     registration = sitk.ImageRegistrationMethod()
 
     if metric == "mi":
@@ -124,35 +137,42 @@ def itk_register(
             f"Unknown metric '{metric}'. "
             "Use 'mi', 'corr' or 'mse'."
         )
+    
+    # mask to account for non-changing background
+    mask = frame_i > 0
+    mask = sitk.GetImageFromArray(mask.astype(np.uint8))
+    mask.CopyInformation(fixed) # copy meta data
     registration.SetInterpolator(sitk.sitkLinear)
-    registration.SetOptimizerAsRegularStepGradientDescent(learningRate=0.1, minStep=1e-4, numberOfIterations=15)
+    registration.SetOptimizerAsRegularStepGradientDescent(learningRate=0.1, minStep=1e-4, numberOfIterations=200)
+    registration.SetOptimizerScalesFromPhysicalShift() # balance translation and rotation
+    registration.SetMetricFixedMask(mask)
+    registration.SetMetricMovingMask(mask)
 
-    # def iteration_callback():
-    #     print(
-    #         f"Iteration: {registration.GetOptimizerIteration():3d}, "
-    #         f"Metric: {registration.GetMetricValue():.6f}"
-    #     )
+    # multi-resolution (perform registration at different resolutions)
+    registration.SetShrinkFactorsPerLevel([4, 2, 1])
+    registration.SetSmoothingSigmasPerLevel([2, 1, 0])
+    registration.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+
+    # iteration callback (for debugging)
+    def iteration_callback():
+        print(
+            f"Iteration: {registration.GetOptimizerIteration():3d}, "
+            f"Metric: {registration.GetMetricValue():.6f}"
+        )
 
     # registration.AddCommand(
     #     sitk.sitkIterationEvent,
     #     iteration_callback
     # )
 
-    # initial
+    # initial transform
     initial = sitk.Euler2DTransform()
-    initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing)
+    initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing, gt has center at image center)
         fixed,
         moving,
         initial,
         sitk.CenteredTransformInitializerFilter.GEOMETRY,
     )
-
-    # set initial transform to pred transform ref and evaluate
-    x, y, yaw = pose3_to_se2(ref_transform)
-    initial.SetTranslation((float(x), float(y)))
-    initial.SetAngle(float(yaw))
-    registration.SetInitialTransform(initial)
-    metric_before_pred = registration.MetricEvaluate(fixed, moving)
 
     # set initial transform to gt transform and evaluate
     x, y, yaw = pose3_to_se2(gt_transform)
@@ -167,8 +187,21 @@ def itk_register(
     registration.SetInitialTransform(initial)
     metric_before_identity = registration.MetricEvaluate(fixed, moving)
 
-    ## register
-    transform_reg = registration.Execute(fixed, moving)
+    # set initial transform to pred transform ref and evaluate
+    x, y, yaw = pose3_to_se2(ref_transform)
+    initial.SetTranslation((float(x), float(y)))
+    initial.SetAngle(float(yaw))
+    registration.SetInitialTransform(initial)
+    metric_before_pred = registration.MetricEvaluate(fixed, moving)
+
+
+    # --------------------------------------------------------
+    # registration
+    # --------------------------------------------------------
+
+    # register
+    transform_reg = registration.Execute(fixed, moving) # SimpleITK finds transform i+1->i!
+    transform_reg_inv = np.linalg.inv(sitk_to_3dof(transform_reg)) # inverse as sitk finds Tj->i
     metric_after = registration.GetMetricValue()
 
     # registering an image on itself with identity transform: error of 0, passt
@@ -188,44 +221,31 @@ def itk_register(
     # errors happen near the transducer and along long edges
     # transforms found by IR differ greatly from GT, even though images look fine
 
-    ## check result
-    registered_image = sitk.Resample(
+    # check result
+    test_transform = sitk.Euler2DTransform()
+    test_transform.SetTranslation((0.0, -10.0))  # 10 mm nach oben
+    registered_image_gt = sitk.Resample(
         moving,
         fixed,
-        transform_reg,
+        _6dof_to_sitk(np.linalg.inv(gt_transform)), # gt transform is Ti->j, sitk is Tj->i
         sitk.sitkLinear,
         0.0
     )
-    error = sitk.SquaredDifference(moving, registered_image)
-    error_np = sitk.GetArrayFromImage(error)
+    registered_image_reg = sitk.Resample(
+        moving,
+        _6dof_to_sitk(transform_reg_inv),
+        sitk.sitkLinear,
+        0.0
+    )
 
-    x = 170
-    y = 90
-
-    moving_val = moving[x, y]
-    reg_val = registered_image[x, y]
-
-    # print(moving_val)
-    # print(reg_val)
-    # print((moving_val - reg_val) ** 2)
-    # print(error_np[y, x])
-
-    # plt.imshow(error_np, cmap="hot")
-    # plt.colorbar()
-    # image_plot(moving, title="moving")
-    # image_plot(registered_image, title="image after IR transform")
-    # plt.show()
-    #breakpoint()
-
-    # image_plot(fixed, title="fixed")
-    # image_plot(moving, title="moving")
-    # image_plot(registered_image_init, title="init transform")
-    # plt.show()
-    
-    T_reg = sitk_to_3dof(transform_reg)
+    image_plot(fixed, title="fixed")
+    image_plot(moving, title="moving")
+    image_plot(registered_image_gt, title="gt transform")
+    image_plot(registered_image_reg, title="ir transform")
+    #plt.show()
 
     return (
-        T_reg,
+        transform_reg_inv,
         float(metric_before_identity),
         float(metric_before_gt),
         float(metric_before_pred),
@@ -256,11 +276,11 @@ def image_plot(img, title=None, margin=0.05, dpi=80): # img is sitk image
             plt.title(title)
 
 
-def fuse_registration_with_pose(T_ref: np.ndarray, T_reg_se2: np.ndarray) -> np.ndarray:
+def fuse_3dof_with_6dof(T_ref: np.ndarray, T_reg_se2: np.ndarray) -> np.ndarray:
 
     T_fused = T_ref.copy()
 
-    # translation, keep z from DL
+    # extract translation
     T_fused[0, 3] = T_reg_se2[0, 2]
     T_fused[1, 3] = T_reg_se2[1, 2]
 
@@ -301,6 +321,19 @@ def sitk_to_3dof(T_itk) -> np.ndarray:
     return T
 
 
+def _6dof_to_sitk(T_itk):
+
+    angle = np.arctan2(T_itk[1, 0], T_itk[0, 0])
+    tx = T_itk[0, 3]
+    ty = T_itk[1, 3]
+
+    transform = sitk.Euler2DTransform()
+    transform.SetAngle(angle)
+    transform.SetTranslation((tx, ty))
+
+    return transform
+
+
 # TODO: Add random sampling
 def sample_pairs_by_step(
     frames: np.ndarray,
@@ -314,7 +347,12 @@ def sample_pairs_by_step(
     list[np.ndarray],
 ]:
     n = len(frames)
+    if step_size > n or n < 2:
+        raise ValueError(
+            f"Invalid number of frames: {n}"
+        )
 
+    # sample pairs of frames given step size
     idc1 = np.arange(0, n - step_size, step_size)
     idc2 = idc1 + step_size
 
@@ -327,10 +365,10 @@ def sample_pairs_by_step(
     ref_transforms = []
     gt_transforms = []
 
+    # get relative transforms between (potentially non-adjacent) frames
     for i in range(len(idc1)):
         ref_transforms.append(np.linalg.inv(acc_transforms_all[idc1[i]]) @ acc_transforms_all[idc2[i]])
         gt_transforms.append(np.linalg.inv(gt_acc_transforms_all[idc1[i]]) @ gt_acc_transforms_all[idc2[i]])
-
     return (
         idc1,
         idc2,

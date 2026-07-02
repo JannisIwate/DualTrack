@@ -26,7 +26,6 @@ from src.evaluator import plot_pose_differences
 def parse_arguments():
 
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         "--config",
         "-c",
@@ -39,7 +38,10 @@ def parse_arguments():
 
 def main():
 
-    ## init
+    # --------------------------------------------------------
+    # init
+    # --------------------------------------------------------
+
     # arguments
     args = parse_arguments()
     config = OmegaConf.load(args.config)
@@ -73,9 +75,12 @@ def main():
     
     data = islice(data, nr_of_scans) if nr_of_scans is not None else data
 
-    ## apply pgo to data scans
+    # --------------------------------------------------------
+    # PGO
+    # --------------------------------------------------------
     for el in tqdm(data, desc="Working", total=nr_of_scans):
 
+        ## load data
         # load file
         sweep_path = os.path.join(input_pred, el, "export.h5")
 
@@ -86,24 +91,24 @@ def main():
 
             nr_of_frames= OmegaConf.select(config, "general.nr_frames")
             if nr_of_frames is None:
-                nr_of_frames = len(f["images"]) + 1
+                nr_of_frames = len(f["images"])
             else:
                 nr_of_frames += 1
             
             # load scan data
-            pred_acc = np.array(f["pred_tracking"][:nr_of_frames])
+            pred_acc = np.array(f["pred_tracking"][:nr_of_frames]) # starts with identity, normalized acc world coords
 
             if input_gt:
-
                 gt_file = os.path.join(input_gt, f"{el}.h5")
 
                 with h5py.File(gt_file, "r") as f_gt:
-                    gt = np.array(f_gt["tracking"][:nr_of_frames])
-                    gt_acc, gt_inbetween = get_global_and_relative_gt_trackings(gt)
-
+                    gt = np.array(f_gt["tracking"][:nr_of_frames]) # acc gt poses in arbitrary world coords
+                    gt_acc, gt_inbetween = get_global_and_relative_gt_trackings(gt) # get normalized acc gt (first pose is identity) and relative gt
+                    # first transform of gt_acc is identity (or rather almost due to numerics)
+                    # first transform of gt_inbetween is identity as first frame is first frame
+                    # gt_inbetween is Ti->j, forward
             else:
-
-                gt_acc = np.array(f["gt_tracking"][:nr_of_frames])
+                gt_acc = np.array(f["gt_tracking"][:nr_of_frames]) # same here as above, transforms already normalized
                 gt_inbetween = compute_inbetween_transforms(gt_acc)
 
             # load auxiliary data
@@ -115,9 +120,9 @@ def main():
         image_shape_hw = tuple(dimensions[:2])
 
         # reformat
-        pred_inbetween = compute_inbetween_transforms(pred_acc)
+        pred_inbetween = compute_inbetween_transforms(pred_acc) # relative transformsm, starts with identity (see above)
 
-        # build graph
+        ## build graph
         # smoothing edges
         if "trajectory_smoothing" in config:
             
@@ -159,7 +164,8 @@ def main():
         # IR constraints
         if "image_registration" in config:
 
-            STEP = 100 # register every STEP frames
+            # get transforms for non-adjacent frames (STEP > 1)
+            STEP = 20 # register every STEP frames
             idc1, idc2, ir_ref_transforms, ir_gt_transforms = sample_pairs_by_step(frames, pred_acc, gt_acc, STEP)
             nr_valid_irs = 0
 
@@ -205,15 +211,14 @@ def main():
                     nr_valid_irs = nr_valid_irs + 1
                 #break
             
-            # print(f"percentage of valid IRs: {(nr_valid_irs / len(idc1)) * 100}%")
             print(f"avg ir metric before: {np.average(np.array(metric_before_list))}")
             print(f"avg ir metric before (gt): {np.average(np.array(metric_before_gt_list))}")
             print(f"avg ir metric before (pred): {np.average(np.array(metric_before_pred_list))}")
             print(f"avg ir metric after: {np.average(np.array(metric_after_list))}")
             print(f"avg ir execution time (s): {np.average(np.array(ir_execution_time_list))}")
             
-            # plot_pose_differences(ir_gt_transforms, ir_ref_transforms)
-            # plot_pose_differences(ir_gt_transforms, ir_transforms)
+            #plot_pose_differences(ir_ref_transforms, ir_gt_transforms, title="GT vs Pred") # gt is blue``
+            plot_pose_differences(ir_transforms, ir_gt_transforms, title="GT vs IR")
             # plt.show()
             #breakpoint()
 
@@ -221,11 +226,12 @@ def main():
             # Implement optical flow logic here
             pass
             
-        # optimize graph
+        ## optimize graph
         pred_graph_gtsam, _, pred_optimized = pred_graph.build_graph()
 
         optimized_pred = gtsam_to_numpy(pred_optimized)
 
+        ## metrics
         # drift metrics
         drift_metrics_pred_vs_gt = get_drift_metrics(
             gt_acc,
@@ -266,7 +272,9 @@ def main():
 
         #break
 
+    # --------------------------------------------------------
     # process results
+    # --------------------------------------------------------
     print("\nAvg drift metrics (initial pred vs optimized pred):\n")
     print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo]
     )
@@ -283,8 +291,9 @@ def main():
         metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo]
     )
 
-    # fig = plot_pose_differences(optimized_pred, gt_acc)
-    # plt.show()
+    # plot_pose_differences(optimized_pred, gt_acc)
+    plt.show()
+
     # plot_trajectories([extract_positions(inbetween_to_accumulated(np.array(ir_gt_transforms))),
     #                    extract_positions(inbetween_to_accumulated(np.array(ir_ref_transforms))),
     #                    extract_positions(inbetween_to_accumulated(np.array(ir_transforms)))],

@@ -207,7 +207,7 @@ def hausdorff_distance(gt_tracking, pred_tracking):
     )
 
 
-def plot_pose_differences(pred, gt, ax=None):
+def plot_pose_differences(pred, gt, title=None, ax=None):
     pred_tracking = np.stack([matrix_to_pose_vector(matrix) for matrix in pred])
     gt_tracking = np.stack([matrix_to_pose_vector(matrix) for matrix in gt])
 
@@ -222,9 +222,9 @@ def plot_pose_differences(pred, gt, ax=None):
         ax_ = ax.flatten()[i]
         tags = ["x", "y", "z", "pitch", "roll", "yaw"]
 
-        ax_.plot(pred_tracking[:, i], label="pred", alpha=0.8)
-        ax_.plot(gt_tracking[:, i], label="gt", alpha=0.8)
-        ax_.set_title(f"mae={errors[i]:.2f}")
+        ax_.plot(pred_tracking[:, i], label="pred", alpha=0.8, color="orange")
+        ax_.plot(gt_tracking[:, i], label="gt", alpha=0.8, color="blue")
+        ax_.set_title(f"{title}, mae={errors[i]:.2f}")
 
         if i <= 2:
             ax_.set_ylabel(f"{tags[i]} (mm)")
@@ -372,6 +372,7 @@ def pose_vector_to_rotation_matrix_torch(pose_vector, degrees=True):
 
 
 def get_global_and_relative_gt_trackings(gt_tracking_world_matrices):
+
     N = len(gt_tracking_world_matrices)
 
     # first make global tracking relative to image coords
