@@ -50,7 +50,7 @@ def main():
 
     input_pred = config.dirs.input_pred
     input_gt = config.dirs.input_gt
-    output_dir = config.dirs.output_dir
+    output_dir = config.dirs.output_dir    
 
     if not input_pred:
         raise ValueError("dirs.input_pred must be specified in the config file.")
@@ -70,14 +70,16 @@ def main():
 
     # data
     data = os.listdir(input_pred)
-
     nr_of_scans = OmegaConf.select(config, "general.nr_scans")
-    
     data = islice(data, nr_of_scans) if nr_of_scans is not None else data
 
     # --------------------------------------------------------
     # PGO
     # --------------------------------------------------------
+    ir_transforms_all = []
+    ir_gt_transforms_all = []
+    ir_ref_transforms_all = []
+
     for el in tqdm(data, desc="Working", total=nr_of_scans):
 
         ## load data
@@ -125,7 +127,6 @@ def main():
         ## build graph
         # smoothing edges
         if "trajectory_smoothing" in config:
-            
             pass
             # TODO: implement trajectory smoothing
 
@@ -165,7 +166,10 @@ def main():
         if "image_registration" in config:
 
             # get transforms for non-adjacent frames (STEP > 1)
-            STEP = 20 # register every STEP frames
+            if "steps" in config.image_registration:
+                STEP = config.image_registration.steps
+            else:
+                STEP = 1
             idc1, idc2, ir_ref_transforms, ir_gt_transforms = sample_pairs_by_step(frames, pred_acc, gt_acc, STEP)
             nr_valid_irs = 0
 
@@ -209,18 +213,24 @@ def main():
                         registration_noise_model(confidence=confidence, ref_sigma=config.general.ref_values_sigma)
                     )
                     nr_valid_irs = nr_valid_irs + 1
-                #break
+            # plot_pose_differences(ir_transforms, ir_gt_transforms, title="GT vs IR")
             
-            print(f"avg ir metric before: {np.average(np.array(metric_before_list))}")
+            # print(f"avg ir metric before: {np.average(np.array(metric_before_list))}")
             print(f"avg ir metric before (gt): {np.average(np.array(metric_before_gt_list))}")
-            print(f"avg ir metric before (pred): {np.average(np.array(metric_before_pred_list))}")
+            # print(f"avg ir metric before (pred): {np.average(np.array(metric_before_pred_list))}")
             print(f"avg ir metric after: {np.average(np.array(metric_after_list))}")
-            print(f"avg ir execution time (s): {np.average(np.array(ir_execution_time_list))}")
+            # print(f"avg ir execution time (s): {np.average(np.array(ir_execution_time_list))}")
             
-            #plot_pose_differences(ir_ref_transforms, ir_gt_transforms, title="GT vs Pred") # gt is blue``
-            plot_pose_differences(ir_transforms, ir_gt_transforms, title="GT vs IR")
-            # plt.show()
-            #breakpoint()
+            #plot_pose_differences(ir_ref_transforms, ir_gt_transforms, title="GT vs Pred") # gt is blue -> general direction is fine
+            plot_pose_differences(ir_transforms, ir_gt_transforms, title="GT vs IR_gradient") # -> general direction is fine but sometimes very big errors
+            #plot_pose_differences(ir_ref_transforms, ir_transforms, title="Ref vs IR_exhaustive")
+            ir_transforms_all.extend(ir_transforms)
+            ir_gt_transforms_all.extend(ir_gt_transforms)
+            ir_ref_transforms_all.extend(ir_ref_transforms)
+            ir_transforms = np.array(ir_transforms)
+
+            #plot_motion_vs_error(ir_ref_transforms, ir_gt_transforms) # -> the bigger the value magnitude the bigger the error (tendency)
+            #plot_motion_vs_error(ir_transforms, ir_gt_transforms) # -> the bigger the value magnitude the bigger the error (more clear, especially for big magnitudes)
 
         if "optical_flow" in config:
             # Implement optical flow logic here
@@ -270,17 +280,24 @@ def main():
         ddf_metrics_original.append(ddf_metrics_pred_vs_gt)
         ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
 
+        # plot_pose_differences(optimized_pred, gt_acc)
+
+        plot_trajectories([extract_positions(inbetween_to_accumulated(np.array(ir_gt_transforms))),
+                        extract_positions(inbetween_to_accumulated(np.array(ir_ref_transforms))),
+                        extract_positions(inbetween_to_accumulated(np.array(ir_transforms)))],
+                            labels=["GT", "Initial estimated", "IR"],
+                            colors=["blue", "red", "black"])
+
         #break
 
     # --------------------------------------------------------
     # process results
     # --------------------------------------------------------
-    print("\nAvg drift metrics (initial pred vs optimized pred):\n")
-    print_avg_metrics([drift_metrics_original, drift_metrics_after_pgo]
-    )
-
-    print("\nAvg DDF metrics (initial pred vs optimized pred):\n")
-    print_avg_metrics([ddf_metrics_original, ddf_metrics_after_pgo])
+    
+    # STEP = 1, ein Scan
+    # -> IR passt von den Richtungen her einigermassen, allerdings ist gibt es viel mehr Drift
+    # -> Fehler bei beiden und allen 6DoF sind weitgehend mittelwertfrei
+    # -> GT Trajektorie "zittert", IR auch, pred ist glatter (vor allem Winkel)
 
     save_results(
         output_dir=output_dir,
@@ -291,14 +308,120 @@ def main():
         metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo]
     )
 
-    # plot_pose_differences(optimized_pred, gt_acc)
     plt.show()
 
-    # plot_trajectories([extract_positions(inbetween_to_accumulated(np.array(ir_gt_transforms))),
-    #                    extract_positions(inbetween_to_accumulated(np.array(ir_ref_transforms))),
-    #                    extract_positions(inbetween_to_accumulated(np.array(ir_transforms)))],
-    #                     labels=["GT", "Initial estimated", "IR"],
-    #                     colors=["blue", "red", "black"])
+
+def largest_pose_errors(est: np.ndarray, gt: np.ndarray, n: int = 5) -> tuple[
+                                                                            np.ndarray,
+                                                                            np.ndarray,
+                                                                            np.ndarray,
+                                                                            np.ndarray,
+                                                                            np.ndarray,
+                                                                            np.ndarray,
+                                                                        ]:
+
+    if est.shape != gt.shape:
+        raise ValueError("est and gt must have the same shape.")
+
+    def rotation_to_angles(R: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+        pitch = np.arctan2(
+            -R[:, 2, 0],
+            np.sqrt(R[:, 2, 1] ** 2 + R[:, 2, 2] ** 2),
+        )
+
+        roll = np.arctan2(R[:, 2, 1], R[:, 2, 2])
+        yaw = np.arctan2(R[:, 1, 0], R[:, 0, 0])
+
+        return roll, pitch, yaw
+
+    def angle_error(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+
+        return np.abs(np.arctan2(np.sin(a - b), np.cos(a - b)))
+
+    # Translation errors
+    x_error = np.abs(est[:, 0, 3] - gt[:, 0, 3])
+    y_error = np.abs(est[:, 1, 3] - gt[:, 1, 3])
+    z_error = np.abs(est[:, 2, 3] - gt[:, 2, 3])
+
+    # Rotation errors
+    roll_est, pitch_est, yaw_est = rotation_to_angles(est[:, :3, :3])
+    roll_gt, pitch_gt, yaw_gt = rotation_to_angles(gt[:, :3, :3])
+
+    roll_error = angle_error(roll_est, roll_gt)
+    pitch_error = angle_error(pitch_est, pitch_gt)
+    yaw_error = angle_error(yaw_est, yaw_gt)
+
+    idx_x = np.argsort(x_error)[-n:][::-1]
+    idx_y = np.argsort(y_error)[-n:][::-1]
+    idx_z = np.argsort(z_error)[-n:][::-1]
+
+    idx_roll = np.argsort(roll_error)[-n:][::-1]
+    idx_pitch = np.argsort(pitch_error)[-n:][::-1]
+    idx_yaw = np.argsort(yaw_error)[-n:][::-1]
+
+    return (
+        idx_x,
+        idx_y,
+        idx_z,
+        idx_roll,
+        idx_pitch,
+        idx_yaw,
+    )
+
+
+def plot_motion_vs_error(est: np.ndarray, gt: np.ndarray):
+
+    if est.shape != gt.shape:
+        raise ValueError("est and gt must have the same shape.")
+
+    # ---------- Translation ----------
+    gt_translation = gt[:, :3, 3]
+    est_translation = est[:, :3, 3]
+
+    gt_translation_mag = np.linalg.norm(gt_translation, axis=1)
+    translation_error = np.linalg.norm(est_translation - gt_translation, axis=1)
+
+    # ---------- Rotation ----------
+    R_gt = gt[:, :3, :3]
+    R_est = est[:, :3, :3]
+
+    # Relative rotation
+    R_err = np.matmul(np.transpose(R_gt, (0, 2, 1)), R_est)
+
+    # Rotation magnitude of GT
+    trace_gt = np.trace(R_gt, axis1=1, axis2=2)
+    gt_rotation = np.arccos(
+        np.clip((trace_gt - 1.0) / 2.0, -1.0, 1.0)
+    )
+
+    # Rotation error
+    trace_err = np.trace(R_err, axis1=1, axis2=2)
+    rotation_error = np.arccos(
+        np.clip((trace_err - 1.0) / 2.0, -1.0, 1.0)
+    )
+
+    # Convert to degrees
+    gt_rotation_deg = np.degrees(gt_rotation)
+    rotation_error_deg = np.degrees(rotation_error)
+
+    # ---------- Plot ----------
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+    axes[0].scatter(gt_translation_mag, translation_error, s=10)
+    axes[0].set_title("Translation")
+    axes[0].set_xlabel("GT translation magnitude [mm]")
+    axes[0].set_ylabel("Translation error [mm]")
+    axes[0].grid(True)
+
+    axes[1].scatter(gt_rotation_deg, rotation_error_deg, s=10)
+    axes[1].set_title("Rotation")
+    axes[1].set_xlabel("GT rotation angle [°]")
+    axes[1].set_ylabel("Rotation error [°]")
+    axes[1].grid(True)
+
+    plt.tight_layout()
+    plt.show()
 
 
 def plot_trajectories(trajectories, labels=None, colors=None):

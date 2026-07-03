@@ -211,7 +211,8 @@ def plot_pose_differences(pred, gt, title=None, ax=None):
     pred_tracking = np.stack([matrix_to_pose_vector(matrix) for matrix in pred])
     gt_tracking = np.stack([matrix_to_pose_vector(matrix) for matrix in gt])
 
-    errors = np.abs(pred_tracking - gt_tracking).mean(0)
+    errors_abs = np.abs(pred_tracking - gt_tracking).mean(0)
+    errors_real = (pred_tracking - gt_tracking).mean(0)
 
     if ax is None: 
         fig, ax = plt.subplots(2, 3)
@@ -224,7 +225,7 @@ def plot_pose_differences(pred, gt, title=None, ax=None):
 
         ax_.plot(pred_tracking[:, i], label="pred", alpha=0.8, color="orange")
         ax_.plot(gt_tracking[:, i], label="gt", alpha=0.8, color="blue")
-        ax_.set_title(f"{title}, mae={errors[i]:.2f}")
+        ax_.set_title(f"mae={errors_abs[i]:.2f}, {errors_real[i]:.2f}")
 
         if i <= 2:
             ax_.set_ylabel(f"{tags[i]} (mm)")
@@ -234,7 +235,7 @@ def plot_pose_differences(pred, gt, title=None, ax=None):
 
         if i == 5:
             ax_.legend()
-
+    fig.canvas.manager.set_window_title(title)
     fig.tight_layout()
     return fig
 
