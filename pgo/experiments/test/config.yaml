@@ -6,7 +6,8 @@ dirs:
 general:
   ref_values_sigma: 1e-1
   nr_scans: 1
-  nr_frames: 2
+  nr_frames: 10
+  save_results: true
 
 # loop_closure:
 #   method: "nearest_neighbor"
@@ -19,10 +20,16 @@ image_registration:
   step: 1
   #cross_check: true
   max_metric_change: 20 # in %
+
   sitk:
     optimizer: "gradient"
     metric: "mi"
     multi_resolution: true
 
-
 #trajectory_smoothing:
+
+plot:
+    #plot_ir_trajectories # per scan
+    plot_ir_error_magnitudes
+    #plot_ir_pose_differences # per scan
+    #print_ir_metrics
