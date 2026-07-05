@@ -35,3 +35,4 @@ tables
 gtsam
 sklearn
 simpleitk
+shutil

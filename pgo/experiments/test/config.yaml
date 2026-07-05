@@ -6,30 +6,21 @@ dirs:
 general:
   ref_values_sigma: 1e-1
   nr_scans: 1
-  nr_frames: 10
-  save_results: true
-
-# loop_closure:
-#   method: "nearest_neighbor"
-#   stepsize: 10
-#   temporal_offset: 10
-#   threshold: 0.9
-#   n_neighbors: 5
+  nr_frames: 100
 
 image_registration:
+  cross_check: true
   step: 1
-  #cross_check: true
   max_metric_change: 20 # in %
-
+  
   sitk:
-    optimizer: "gradient"
     metric: "mi"
+    optimizer: "gradient"
     multi_resolution: true
 
-#trajectory_smoothing:
-
 plot:
-    #plot_ir_trajectories # per scan
-    plot_ir_error_magnitudes
-    #plot_ir_pose_differences # per scan
-    #print_ir_metrics
+  print_ir_metrics: true
+  plot_ir_error_magnitudes: true
+  plot_ir_pose_differences: true
+  plot_ir_trajectories: true
+    

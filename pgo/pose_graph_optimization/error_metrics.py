@@ -1,10 +1,12 @@
 import os
+import shutil
 from collections.abc import Sequence
 from typing import Any
 
 import h5py
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from .utils import mat4_to_pose3
 
@@ -49,6 +51,8 @@ def save_results(
     optimized: Sequence[np.ndarray],
     metrics_original: Sequence[dict[str, float]] | None = None,
     metrics_after_pgo: Sequence[dict[str, float]] | None = None,
+    ir_metrics: dict[str, Sequence[float]] | None = None,
+    figs: dict | None = None,
 ) -> None:
     
     if metrics_original is None:
@@ -56,6 +60,14 @@ def save_results(
 
     if metrics_after_pgo is None:
         metrics_after_pgo = []
+
+    if ir_metrics is None:
+        ir_metrics = {}
+
+    try:
+        shutil.rmtree(output_dir)
+    except FileNotFoundError:
+        print("Directory not found.")
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -80,6 +92,15 @@ def save_results(
                 f.write(f"  {key}: {value}\n")
             f.write("\n")
 
+        if ir_metrics:
+            f.write("image registration:\n\n")
+            ir_df = pd.DataFrame(ir_metrics)
+            f.write(f"  {ir_df.keys()[0]}: {ir_df.iloc[0, 0]}\n") # write metric type
+            ir_mean = ir_df.loc[:, ir_df.columns[1:]].mean()
+            for key, value in ir_mean.items():
+                f.write(f"  {key}: {value}\n")
+            f.write("\n")
+
     graph_path = os.path.join(output_dir, "graph.h5")
 
     with h5py.File(graph_path, "w") as f:
@@ -97,6 +118,12 @@ def save_results(
             data=np.asarray(optimized),
             compression="gzip",
         )
+
+    if figs:
+        figs_dir = os.path.join(output_dir, "figs")
+        os.makedirs(figs_dir, exist_ok=True)
+        for fig_name, fig in figs.items():
+            fig.savefig(os.path.join(figs_dir, fig_name))
 
     print(f"Saved results to {output_dir}")
 

@@ -237,6 +237,7 @@ def plot_pose_differences(pred, gt, title=None, ax=None):
             ax_.legend()
     fig.canvas.manager.set_window_title(title)
     fig.tight_layout()
+    
     return fig
 
 

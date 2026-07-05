@@ -57,6 +57,22 @@ def main():
     ddf_metrics_original = []
     ddf_metrics_after_pgo = []
 
+    ir_transforms_all = {
+        "ir_transforms": [],
+        "ir_gt_transforms": [],
+        "ir_ref_transforms": [],
+    }
+    ir_metrics_all = {
+        "metric": str,
+        "metric_before": [],
+        "metric_before_gt": [],
+        "metric_before_pred": [],
+        "metric_after": [],
+        "ir_execution_time": [],
+    }
+
+    figs = {}
+
     # data
     data = os.listdir(input_pred)
     nr_of_scans = OmegaConf.select(config, "general.nr_scans")
@@ -67,21 +83,12 @@ def main():
     # PGO
     # --------------------------------------------------------
 
-    ## IR metrics
-    ir_transforms_all = []
-    ir_gt_transforms_all = []
-    ir_ref_transforms_all = []
-    metric_before_list_all = []
-    metric_before_gt_list_all = []
-    metric_before_pred_list_all = []
-    metric_after_list_all = []
-    ir_execution_time_list_all = []
-
-    for el in tqdm(data, desc="Working", total=nr_of_scans):
+    for i, el in enumerate(tqdm(data, desc="Working", total=nr_of_scans)):
 
         ## load data
         # load file
         sweep_path = os.path.join(input_pred, el, "export.h5")
+        sweep_name = f"sweep{i}"
 
         if not os.path.isfile(sweep_path):
             continue
@@ -163,8 +170,8 @@ def main():
         if "image_registration" in config:
 
             # get transforms for non-adjacent frames (STEP > 1)
-            if "steps" in config.image_registration:
-                STEP = config.image_registration.steps
+            if "step" in config.image_registration:
+                STEP = config.image_registration.step
             else:
                 STEP = 1
             idc1, idc2, ir_ref_transforms, ir_gt_transforms = sample_pairs_by_step(frames, pred_acc, gt_acc, STEP)
@@ -190,11 +197,12 @@ def main():
                             )
                 ir_execution_time = time.time() - start_time
                 
-                metric_before_list_all.append(metric_before_identity)
-                metric_before_gt_list_all.append(metric_before_gt)
-                metric_before_pred_list_all.append(metric_before_pred)
-                metric_after_list_all.append(metric_after)
-                ir_execution_time_list_all.append(ir_execution_time)
+                ir_metrics_all["metric"] = config.image_registration.sitk.metric
+                ir_metrics_all["metric_before"].append(metric_before_identity)
+                ir_metrics_all["metric_before_gt"].append(metric_before_gt)
+                ir_metrics_all["metric_before_pred"].append(metric_before_pred)
+                ir_metrics_all["metric_after"].append(metric_after)
+                ir_metrics_all["ir_execution_time"].append(ir_execution_time)
                 ir_transforms.append(transform_ir)
 
                 if valid:
@@ -207,26 +215,26 @@ def main():
                     nr_valid_irs = nr_valid_irs + 1
             
             if "plot_ir_pose_differences" in config.plot:
-
-                plot_pose_differences(ir_ref_transforms, ir_gt_transforms, title="GT vs Pred") # gt is blue -> general direction is fine
-                plot_pose_differences(ir_transforms, ir_gt_transforms, title="GT vs IR") # -> general direction is fine but sometimes very big errors
+                
+                figs[f"{sweep_name}_ir_pose_diffs_ref_gt"] = plot_pose_differences(ir_ref_transforms, ir_gt_transforms, title="GT vs Pred") # gt is blue -> general direction is fine
+                figs[f"{sweep_name}_ir_pose_diffs_ir_gt"] = plot_pose_differences(ir_transforms, ir_gt_transforms, title="GT vs IR") # -> general direction is fine but sometimes very big errors
 
             if "plot_ir_trajectories" in config.plot:
 
-                plot_trajectories([extract_positions(inbetween_to_accumulated(np.array(ir_gt_transforms))),
-                                extract_positions(inbetween_to_accumulated(np.array(ir_ref_transforms))),
-                                extract_positions(inbetween_to_accumulated(np.array(ir_transforms)))],
-                                labels=["GT", "Initial estimated", "IR"],
-                                colors=["blue", "red", "black"])
+                figs[f"{sweep_name}_ir_trajectories_gt_ref_ir"] = plot_trajectories([extract_positions(inbetween_to_accumulated(np.array(ir_gt_transforms))),
+                                                                                    extract_positions(inbetween_to_accumulated(np.array(ir_ref_transforms))),
+                                                                                    extract_positions(inbetween_to_accumulated(np.array(ir_transforms)))],
+                                                                                    labels=["GT", "Initial estimated", "IR"],
+                                                                                    colors=["blue", "red", "black"])
 
                 # STEP = 1, ein Scan
                 # -> IR passt von den Richtungen her einigermassen, allerdings ist gibt es viel mehr Drift
                 # -> Fehler bei beiden und allen 6DoF sind weitgehend mittelwertfrei
                 # -> GT Trajektorie "zittert", IR auch, pred ist glatter (vor allem Winkel)
             
-            ir_transforms_all.extend(ir_transforms)
-            ir_gt_transforms_all.extend(ir_gt_transforms)
-            ir_ref_transforms_all.extend(ir_ref_transforms)
+            ir_transforms_all["ir_transforms"].extend(ir_transforms)
+            ir_transforms_all["ir_gt_transforms"].extend(ir_gt_transforms)
+            ir_transforms_all["ir_ref_transforms"].extend(ir_ref_transforms)
 
         if "optical_flow" in config:
             # Implement optical flow logic here
@@ -284,27 +292,37 @@ def main():
 
     if "print_ir_metrics" in config.plot:
         print(f"IR Metric: {config.image_registration.sitk.metric}\n")
-        print(f"avg ir metric before: {np.average(np.array(metric_before_list_all))}")
-        print(f"avg ir metric before (gt): {np.average(np.array(metric_before_gt_list_all))}")
-        print(f"avg ir metric before (pred): {np.average(np.array(metric_before_pred_list_all))}")
-        print(f"avg ir metric after: {np.average(np.array(metric_after_list_all))}")
-        print(f"avg ir execution time (s): {np.average(np.array(ir_execution_time_list_all))}")
+        print(f"avg ir metric before: {np.average(np.array(ir_metrics_all['metric_before']))}")
+        print(f"avg ir metric before (gt): {np.average(np.array(ir_metrics_all['metric_before_gt']))}")
+        print(f"avg ir metric before (pred): {np.average(np.array(ir_metrics_all['metric_before_pred']))}")
+        print(f"avg ir metric after: {np.average(np.array(ir_metrics_all['metric_after']))}")
+        print(f"avg ir execution time (s): {np.average(np.array(ir_metrics_all['ir_execution_time']))}")
 
     if "plot_ir_error_magnitudes" in config.plot:
-        plot_motion_vs_error(np.array(ir_ref_transforms_all), np.array(ir_gt_transforms_all), title="Ref vs GT") # -> the bigger the value magnitude the bigger the error (tendency)
-        plot_motion_vs_error(np.array(ir_transforms), np.array(ir_gt_transforms), title="IR vs GT") # -> the bigger the value magnitude the bigger the error (more clear, especially for big magnitudes)
+        figs[f"{sweep_name}_ir_error_mags_ref_gt"] = plot_motion_vs_error(
+            np.array(ir_transforms_all["ir_ref_transforms"]),
+            np.array(ir_transforms_all["ir_gt_transforms"]),
+            title="Ref vs GT"
+        )
+        figs[f"{sweep_name}_ir_error_mags_ir_gt"] = plot_motion_vs_error(
+            np.array(ir_transforms_all["ir_transforms"]),
+            np.array(ir_transforms_all["ir_gt_transforms"]),
+            title="IR vs GT"
+        )
 
     if "output_dir" in config.dirs:
         save_results(
-            output_dir=config.dirs.output_dir,
+            output_dir=f"{config.dirs.output_dir}/results",
             graph=pred_graph_gtsam,
             initial=pred_acc,
             optimized=optimized_pred,
             metrics_original=[drift_metrics_original, ddf_metrics_original],
-            metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo]
+            metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo],
+            ir_metrics=ir_metrics_all,
+            figs=figs,
         )
 
-    plt.show()
+    # plt.show()
 
 
 def largest_pose_errors(est: np.ndarray, gt: np.ndarray, n: int = 5) -> tuple[
@@ -424,6 +442,8 @@ def plot_motion_vs_error(est: np.ndarray, gt: np.ndarray, title:str = "Error mag
 
     plt.tight_layout()
 
+    return fig
+
 
 def plot_trajectories(trajectories, labels=None, colors=None, title:str = "Trajectories"):
 
@@ -449,7 +469,9 @@ def plot_trajectories(trajectories, labels=None, colors=None, title:str = "Traje
     ax.set_title("Pose Graph Trajectories")
     ax.legend()
     fig.canvas.manager.set_window_title(title)
-    plt.show()
+    #plt.show()
+
+    return fig
 
 
 def extract_positions(values:np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
