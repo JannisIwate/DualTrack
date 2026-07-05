@@ -469,7 +469,8 @@ def plot_trajectories(trajectories, labels=None, colors=None, title:str = "Traje
     ax.set_title("Pose Graph Trajectories")
     ax.legend()
     fig.canvas.manager.set_window_title(title)
-    #plt.show()
+    # plt.show()
+    # breakpoint()
 
     return fig
 

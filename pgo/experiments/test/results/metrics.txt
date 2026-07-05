@@ -14,17 +14,17 @@ initial:
 
 after pgo:
 
-  final_drift_rate: 70.54775525510829
-  avg_drift_rate: 54.337348532621746
-  max_drift: 15.466238552416264
-  sum_of_drift: 858.0790186290158
+  final_drift_rate: 31.714234975174193
+  avg_drift_rate: 26.598515220207748
+  max_drift: 6.952736084369045
+  sum_of_drift: 383.876263705278
 
-  avg_global_displacement_error: 9.666187286376953
-  max_global_displacement_error: 18.46712875366211
-  avg_local_displacement_error: 0.27476873993873596
-  max_local_displacement_error: 0.7095409631729126
-  tusrec_final_score: 0.5446623797220507
-  relative_global_err_pct: 0.6479495763778687
+  avg_global_displacement_error: 4.161039352416992
+  max_global_displacement_error: 7.947541236877441
+  avg_local_displacement_error: 0.18092061579227448
+  max_local_displacement_error: 0.39368247985839844
+  tusrec_final_score: 0.5084385813369602
+  relative_global_err_pct: 0.2983064353466034
 
 image registration:
 
@@ -32,6 +32,6 @@ image registration:
   metric_before: -1.1478454577071655
   metric_before_gt: -1.1435695540700421
   metric_before_pred: -1.1546732550791676
-  metric_after: -1.1724022442769446
-  ir_execution_time: 0.6726913714408874
+  metric_after: -1.1724022442812703
+  ir_execution_time: 0.6450732684135437
 

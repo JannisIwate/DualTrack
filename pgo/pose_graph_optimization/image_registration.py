@@ -223,19 +223,28 @@ def itk_register(
     transform_reg_inv = np.linalg.inv(sitk_to_3dof(transform_reg)) # inverse as sitk finds Tj->i
     metric_after = registration.GetMetricValue()
 
-    # check result
-    # registered_image_gt = sitk.Resample(
+    # check images
+    # image_plot(fixed, title="fixed")
+    # image_plot(fixed, title="fixed")
+
+    # image_plot(moving, title="moving")
+    # image_plot(moving, title="moving")
+
+    # registered_image_ir = sitk.Resample(
     #     moving,
     #     fixed,
-    #     _6dof_to_sitk(np.linalg.inv(gt_transform)), # gt transform is Ti->j, sitk is Tj->i
+    #     transform_reg,
     #     sitk.sitkLinear,
     #     0.0
     # )
-    # image_plot(registered_image_reg, title="ir transform")
+    # image_plot(registered_image_ir, title="ir transform")
+    # print(transform_reg)
     # plt.show()
+    # breakpoint()
 
     return (
-        transform_reg_inv,
+        #transform_reg_inv, # Was jetzt?
+        sitk_to_3dof(transform_reg),
         float(metric_before_identity),
         float(metric_before_gt),
         float(metric_before_pred),
