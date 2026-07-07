@@ -449,12 +449,21 @@ def run_full_test_loop(
             spacing = batch["spacing"][0]
             dimensions = batch["dimensions"][0]
             targets = batch["targets"][0]
-            pixel_to_image = batch["pixel_to_image"][0]
+            #pixel_to_image = batch["pixel_to_image"][0]
+            import numpy as np
+            pixel_to_image = np.array(
+                [
+                    [0.22938919, 0.0, 0.0, -73.28984642],
+                    [0.0, 0.22097969, 0.0, -52.92463589],
+                    [0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0],
+                ]
+            )
 
-            pred_tracking_sequence = (
+            pred_tracking_sequence_glob, pred_tracking_sequence_loc = (
                 get_global_and_relative_pred_trackings_from_vectors(
                     pred[0].cpu().numpy()
-                )[0]
+                )
             )
             gt_tracking_sequence = get_global_and_relative_pred_trackings_from_vectors(
                 targets.cpu().numpy()
@@ -466,7 +475,8 @@ def run_full_test_loop(
                 f["spacing"] = spacing
                 f["dimensions"] = dimensions
                 f["gt_tracking"] = gt_tracking_sequence
-                f["pred_tracking"] = pred_tracking_sequence
+                f["pred_tracking_glob"] = pred_tracking_sequence_glob
+                f["pred_tracking_loc"] = pred_tracking_sequence_loc
                 f["pixel_to_image"] = pixel_to_image
                 f["fvs"] = fvs
 

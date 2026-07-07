@@ -11,6 +11,7 @@ from src.models.utils import BertWrapper, FrozenModuleWrapper
 from .sampler import SparseSampler, RegularGridSampler
 from src.models import local_encoder
 from src.models import global_encoder
+from src.utils import load_model_weights
 
 
 class DualTrack(BaseTrackingEstimator, nn.Module):
@@ -56,6 +57,7 @@ class DualTrack(BaseTrackingEstimator, nn.Module):
             local_features, encoder_hidden_states=global_features
         ) # shape (1, nr images, fv length)
         return self.head(tracking_decoder_outputs), tracking_decoder_outputs
+
 
     @typing.overload
     def forward(self, global_encoder_inputs, local_encoder_inputs):
@@ -199,6 +201,7 @@ def dualtrack_fusion_model(
     decoder_hidden_size=512,
     grid_spacing=16,
     max_position_embeddings=1024,
+    **kwargs,
 ):
 
     # === Global encoder ===
@@ -243,11 +246,12 @@ def dualtrack_fusion_model(
         head,
         sampler=RegularGridSampler(grid_spacing),
         disable_global_encoder=disable_global_encoder,
+        **kwargs,
     )
 
 
 # @register_model
-# def dualtrack_tus_rec_2024(pretrained=False, **kwargs):
+# def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
 #     model = dualtrack_fusion_model(
 #         local_encoder_cfg=dict(name="dualtrack_loc_enc_stg3_legacy"), **kwargs
 #     )
@@ -256,9 +260,10 @@ def dualtrack_fusion_model(
 #             "DUALTRACK_FINAL_CHECKPOINT_PATH"
 #         ) or 'data/checkpoints/dualtrack_final.pt'
 
-#         print(model.load_state_dict(
-#             torch.load(path, map_location='cpu')
-#         ))
+#         msg = load_model_weights(
+#             model, path, strict=False,
+#         )
+#         print(f"Loaded pretrained weights from {path} with message: {msg}")
 
 #     return model
 

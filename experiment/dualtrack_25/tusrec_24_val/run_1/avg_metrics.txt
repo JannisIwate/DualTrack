@@ -16,5 +16,5 @@ ddf/5pt-avg_local_displacement_error         0.162228
 ddf/5pt-max_local_displacement_error         0.581824
 ddf/5pt-tusrec_final_score                   0.591437
 ddf/5pt-relative_global_err_pct              0.341527
-inference_time                               0.885896
-total_time                                   4.383249
+inference_time                               0.916240
+total_time                                   4.293943

@@ -53,23 +53,18 @@ def main():
     # variables
     drift_metrics_original = []
     drift_metrics_after_pgo = []
+    drift_metrics_after_ir = []
 
     ddf_metrics_original = []
     ddf_metrics_after_pgo = []
+    ddf_metrics_after_ir = []
 
     ir_transforms_all = {
         "ir_transforms": [],
         "ir_gt_transforms": [],
         "ir_ref_transforms": [],
     }
-    ir_metrics_all = {
-        "metric": str,
-        "metric_before": [],
-        "metric_before_gt": [],
-        "metric_before_pred": [],
-        "metric_after": [],
-        "ir_execution_time": [],
-    }
+    ir_metrics_all = None
 
     figs = {}
 
@@ -102,7 +97,8 @@ def main():
                 nr_of_frames += 1
             
             # load scan data
-            pred_acc = np.array(f["pred_tracking"][:nr_of_frames]) # starts with identity, normalized acc world coords
+            pred_acc = np.array(f["pred_tracking_glob"][:nr_of_frames]) # starts with identity, normalized acc world coords
+            pred_inbetween = np.array(f["pred_tracking_loc"][:nr_of_frames])
 
             if "input_gt" in config.dirs:
                 gt_file = os.path.join(config.dirs.input_gt, f"{el}.h5")
@@ -110,6 +106,8 @@ def main():
                 with h5py.File(gt_file, "r") as f_gt:
                     gt = np.array(f_gt["tracking"][:nr_of_frames]) # acc gt poses in arbitrary world coords
                     gt_acc, gt_inbetween = get_global_and_relative_gt_trackings(gt) # get normalized acc gt (first pose is identity) and relative gt
+                    # gt_acc = np.round(gt_acc, decimals=8)
+                    # gt_inbetween = np.round(gt_inbetween, decimals=8)
                     # first transform of gt_acc is identity (or rather almost due to numerics)
                     # first transform of gt_inbetween is identity as first frame is first frame
                     # gt_inbetween is Ti->j, forward
@@ -124,9 +122,10 @@ def main():
             dimensions = np.array(f["dimensions"])
 
         image_shape_hw = tuple(dimensions[:2])
+        image_shape_hw = (image_shape_hw[1], image_shape_hw[0])
 
         # reformat
-        pred_inbetween = compute_inbetween_transforms(pred_acc) # relative transformsm, starts with identity (see above)
+        #pred_inbetween = compute_inbetween_transforms(pred_acc) # relative transforms, starts with identity (see above), differs slightly from pred_loc in DT pipeline :(
 
         ## build graph
         # smoothing edges
@@ -168,6 +167,15 @@ def main():
 
         # IR constraints
         if "image_registration" in config:
+
+            ir_metrics_all = {
+                "metric": str,
+                "metric_before": [],
+                "metric_before_gt": [],
+                "metric_before_pred": [],
+                "metric_after": [],
+                "ir_execution_time": [],
+            }
 
             # get transforms for non-adjacent frames (STEP > 1)
             if "step" in config.image_registration:
@@ -236,6 +244,24 @@ def main():
             ir_transforms_all["ir_gt_transforms"].extend(ir_gt_transforms)
             ir_transforms_all["ir_ref_transforms"].extend(ir_ref_transforms)
 
+            gt_acc = torch.tensor(gt_acc) # to match 
+            drift_metrics_ir_vs_gt = get_drift_metrics(
+                gt_acc,
+                inbetween_to_accumulated(np.array(ir_transforms)),
+            )
+            drift_metrics_after_ir.append(drift_metrics_ir_vs_gt)
+
+            ddf_metrics_ir = get_ddf_metrics(
+                inbetween_to_accumulated(np.array(ir_transforms)),
+                np.concatenate((np.eye(4)[None, :, :], np.asarray(ir_transforms)), axis=0),
+                gt_acc,
+                gt_inbetween,
+                calibration_matrix,
+                image_shape_hw,
+                mode="5pt-landmark",
+            )
+            ddf_metrics_after_ir.append(ddf_metrics_ir)
+
         if "optical_flow" in config:
             # Implement optical flow logic here
             pass
@@ -247,6 +273,7 @@ def main():
 
         ## metrics
         # drift metrics
+        gt_acc = torch.tensor(gt_acc) # to match 
         drift_metrics_pred_vs_gt = get_drift_metrics(
             gt_acc,
             pred_acc,
@@ -266,11 +293,10 @@ def main():
             pred_inbetween,
             gt_acc,
             gt_inbetween,
-            calibration_matrix,
+            torch.tensor(calibration_matrix),
             image_shape_hw,
             mode="5pt-landmark",
         )
-
         ddf_metrics_optimized_vs_gt = get_ddf_metrics(
             optimized_pred,
             compute_inbetween_transforms(optimized_pred),
@@ -289,26 +315,27 @@ def main():
     # --------------------------------------------------------
     # output results
     # --------------------------------------------------------
+    if "plot" in config:
+        if "print_ir_metrics" in config.plot:
+            print(f"IR Metric: {config.image_registration.sitk.metric}\n")
+            print(f"avg ir metric before: {np.average(np.array(ir_metrics_all['metric_before']))}")
+            print(f"avg ir metric before (gt): {np.average(np.array(ir_metrics_all['metric_before_gt']))}")
+            print(f"avg ir metric before (pred): {np.average(np.array(ir_metrics_all['metric_before_pred']))}")
+            print(f"avg ir metric after: {np.average(np.array(ir_metrics_all['metric_after']))}")
+            print(f"avg ir execution time (s): {np.average(np.array(ir_metrics_all['ir_execution_time']))}")
+            print(f"drift and ddf metrics:\n{ddf_metrics_after_ir}\n{drift_metrics_after_ir}")
 
-    if "print_ir_metrics" in config.plot:
-        print(f"IR Metric: {config.image_registration.sitk.metric}\n")
-        print(f"avg ir metric before: {np.average(np.array(ir_metrics_all['metric_before']))}")
-        print(f"avg ir metric before (gt): {np.average(np.array(ir_metrics_all['metric_before_gt']))}")
-        print(f"avg ir metric before (pred): {np.average(np.array(ir_metrics_all['metric_before_pred']))}")
-        print(f"avg ir metric after: {np.average(np.array(ir_metrics_all['metric_after']))}")
-        print(f"avg ir execution time (s): {np.average(np.array(ir_metrics_all['ir_execution_time']))}")
-
-    if "plot_ir_error_magnitudes" in config.plot:
-        figs[f"{sweep_name}_ir_error_mags_ref_gt"] = plot_motion_vs_error(
-            np.array(ir_transforms_all["ir_ref_transforms"]),
-            np.array(ir_transforms_all["ir_gt_transforms"]),
-            title="Ref vs GT"
-        )
-        figs[f"{sweep_name}_ir_error_mags_ir_gt"] = plot_motion_vs_error(
-            np.array(ir_transforms_all["ir_transforms"]),
-            np.array(ir_transforms_all["ir_gt_transforms"]),
-            title="IR vs GT"
-        )
+        if "plot_ir_error_magnitudes" in config.plot:
+            figs[f"{sweep_name}_ir_error_mags_ref_gt"] = plot_motion_vs_error(
+                np.array(ir_transforms_all["ir_ref_transforms"]),
+                np.array(ir_transforms_all["ir_gt_transforms"]),
+                title="Ref vs GT"
+            )
+            figs[f"{sweep_name}_ir_error_mags_ir_gt"] = plot_motion_vs_error(
+                np.array(ir_transforms_all["ir_transforms"]),
+                np.array(ir_transforms_all["ir_gt_transforms"]),
+                title="IR vs GT"
+            )
 
     if "output_dir" in config.dirs:
         save_results(

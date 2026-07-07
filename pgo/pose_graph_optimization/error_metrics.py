@@ -61,8 +61,8 @@ def save_results(
     if metrics_after_pgo is None:
         metrics_after_pgo = []
 
-    if ir_metrics is None:
-        ir_metrics = {}
+    # if ir_metrics is None:
+    #     ir_metrics = {}
 
     try:
         shutil.rmtree(output_dir)
@@ -92,7 +92,7 @@ def save_results(
                 f.write(f"  {key}: {value}\n")
             f.write("\n")
 
-        if ir_metrics:
+        if ir_metrics is not None:
             f.write("image registration:\n\n")
             ir_df = pd.DataFrame(ir_metrics)
             f.write(f"  {ir_df.keys()[0]}: {ir_df.iloc[0, 0]}\n") # write metric type
@@ -135,5 +135,3 @@ def print_avg_metrics(metrics_list: Sequence[dict[str, float]]) -> None:
 
         for key, value in avg_metrics_df.items():
             print(f"  {key}: {value:.4f}")
-
-        print()

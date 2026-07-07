@@ -157,9 +157,17 @@ def itk_register(
     if optimizer == "gradient":
         registration.SetOptimizerAsRegularStepGradientDescent(learningRate=0.1, minStep=1e-4, numberOfIterations=200)
         registration.SetOptimizerScalesFromPhysicalShift() # balance translation and rotation
-    elif optimizer == "exhaustive":
+    elif optimizer == "exhaustive": # takes too long
         registration.SetOptimizerAsExhaustive([10, 10, 10])
         registration.SetOptimizerScales([np.deg2rad(0.005), 1/20, 1/20])
+    elif optimizer == "amoeba": # takes too long
+        registration.SetOptimizerAsAmoeba(
+            simplexDelta=1.0,
+            numberOfIterations=200,
+            parametersConvergenceTolerance=1e-6,
+            functionConvergenceTolerance=1e-4,
+            withRestarts=True
+        )
     else:
         raise ValueError(
             f"Unknown optimizer '{optimizer}'. "

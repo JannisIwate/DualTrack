@@ -24,7 +24,6 @@ def fusion_model_transform(
     sequence_keys=["images", "tracking"],
     include_raw_images=False
 ):
-
     def transform(item, train=True):
         if include_raw_images: 
             item['raw_images'] = item['images'].copy()

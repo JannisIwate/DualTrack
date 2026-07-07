@@ -10,7 +10,7 @@ model:
       max_subsequence_size: 1024
     max_position_embeddings: 4096
   max_position_embeddings: 4096
-  checkpoint: configs/model/dualtrack_tusrec24.pt
+  checkpoint: DualTrack_auxiliary/model/dualtrack_tusrec24.pt
 
 data: 
   dataset: tus-rec-25-val

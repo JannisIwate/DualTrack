@@ -1,37 +1,37 @@
 initial:
 
-  final_drift_rate: 17.320528994380147
-  avg_drift_rate: 10.1498669628791
-  max_drift: 3.7971928704525117
-  sum_of_drift: 154.2997905476158
+  final_drift_rate: 14.648150658952883
+  avg_drift_rate: 28.320283961346014
+  max_drift: 0.38401375386975883
+  sum_of_drift: 2.687280035087271
 
-  avg_global_displacement_error: 2.135124683380127
-  max_global_displacement_error: 5.0150885581970215
-  avg_local_displacement_error: 0.1587897688150406
-  max_local_displacement_error: 0.43924063444137573
-  tusrec_final_score: 0.6063750407685169
-  relative_global_err_pct: 0.15531271696090698
+  avg_global_displacement_error: 0.33163776993751526
+  max_global_displacement_error: 0.5067855715751648
+  avg_local_displacement_error: 0.1322970688343048
+  max_local_displacement_error: 0.1997174471616745
+  tusrec_final_score: 0.34159207728769636
+  relative_global_err_pct: 0.38159456849098206
 
 after pgo:
 
-  final_drift_rate: 31.714234975174193
-  avg_drift_rate: 26.598515220207748
-  max_drift: 6.952736084369045
-  sum_of_drift: 383.876263705278
+  final_drift_rate: 18.65577524386287
+  avg_drift_rate: 25.256683031542398
+  max_drift: 0.41497240597897406
+  sum_of_drift: 2.2917336192910684
 
-  avg_global_displacement_error: 4.161039352416992
-  max_global_displacement_error: 7.947541236877441
-  avg_local_displacement_error: 0.18092061579227448
-  max_local_displacement_error: 0.39368247985839844
-  tusrec_final_score: 0.5084385813369602
-  relative_global_err_pct: 0.2983064353466034
+  avg_global_displacement_error: 0.5328532457351685
+  max_global_displacement_error: 1.0477964878082275
+  avg_local_displacement_error: 0.18116796016693115
+  max_local_displacement_error: 0.29564934968948364
+  tusrec_final_score: 0.4393368273797803
+  relative_global_err_pct: 0.5058340430259705
 
 image registration:
 
   metric: mi
-  metric_before: -1.1478454577071655
-  metric_before_gt: -1.1435695540700421
-  metric_before_pred: -1.1546732550791676
-  metric_after: -1.1724022442812703
-  ir_execution_time: 0.6450732684135437
+  metric_before: -1.0442471098191697
+  metric_before_gt: -1.021541945273159
+  metric_before_pred: -1.0182929432706516
+  metric_after: -1.0852137311474603
+  ir_execution_time: 0.7310136795043946
 

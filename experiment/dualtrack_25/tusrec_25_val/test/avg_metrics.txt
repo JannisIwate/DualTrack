@@ -6,7 +6,7 @@ mae/pitch                                   5.712893
 mae/roll                                    4.341026
 mae/yaw                                     3.671079
 drift/final_drift_rate                     72.945560
-drift/avg_drift_rate                       44.563699
+drift/avg_drift_rate                       44.540040
 drift/max_drift                            11.862648
 drift/sum_of_drift                       8283.054915
 drift/hausdorff                            10.870919
@@ -16,5 +16,5 @@ ddf/5pt-avg_local_displacement_error        0.169157
 ddf/5pt-max_local_displacement_error        1.154550
 ddf/5pt-tusrec_final_score                  0.641710
 ddf/5pt-relative_global_err_pct             0.330631
-inference_time                              2.680592
-total_time                                 11.224299
+inference_time                              2.754223
+total_time                                 11.259056

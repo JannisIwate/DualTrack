@@ -37,7 +37,7 @@ cd "$WORKDIR" || exit 1
 # transformer: fusion
 # extras: filtering of first null drift value
 
-python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_24_data.yaml --log_dir experiment/dualtrack_25/tusrec_24_val/run_1 --save_predictions
+#python evaluate.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_24_data.yaml --log_dir /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1    --save_predictions --overwrite_log_dir
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1    
 # -> fdr of 28.54%, avg gpe of 24.79mm (worse then DualTrack24?)
@@ -63,7 +63,7 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2
 ### DualTrack24
 
 ## test
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/test --nr_scans 3 --overwrite_log_dir
+#DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24.pt python evaluate.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/test --overwrite_log_dir --save_predictions 
 
 ## experiment 1
 
@@ -74,7 +74,7 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2
 # transformer: default (local_encoder_transform)
 # extras: /
 
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run_original
+#DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run --overwrite_log_dir --save_predictions 
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_original
 # -> performance from repo/paper recreated (avg gpe of 4.9mm)
@@ -90,7 +90,7 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2
 # transformer: default (local_encoder_transform)
 # extras: filtering of first null drift value, deletion of var values in loop after use
 
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run
+#DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24.pt python evaluate.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_original --overwrite_log_dir --save_predictions 
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run
 # -> performance from repo/paper recreated (avg gpe of 4.9mm) -> filtering does not have an effect, deletion does
@@ -106,7 +106,7 @@ python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2
 # transformer: default (local_encoder_transform)
 # extras: filtering of first null drift value, deletion of var values in loop after use
 
-#python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final_25_data.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run_25_data --overwrite_log_dir
+DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final_25_data.yaml --log_dir experiment/dualtrack_24/tusrec_25_val/run_1 --overwrite_log_dir --save_predictions
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_25_data
 # -> extremely bad results (avg fdr of 488.77%, avg gpe of 56.53mm)

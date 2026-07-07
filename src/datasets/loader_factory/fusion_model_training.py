@@ -58,6 +58,7 @@ def get_loaders(
         if not features_paths:
             item["local_encoder_images"] = item["images"].copy()
 
+        item['raw_images'] = item['images'].copy()
         item.pop("images")
 
         if train and use_augmentations:

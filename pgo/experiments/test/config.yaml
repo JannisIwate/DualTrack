@@ -1,12 +1,13 @@
 dirs:
-  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans
-  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted
+  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run/scans
+  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted
+  #input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_original/scans
   output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test
 
 general:
   ref_values_sigma: 1e-1
   nr_scans: 1
-  nr_frames: 100
+  nr_frames: 10
 
 image_registration:
   cross_check: true
@@ -23,4 +24,3 @@ plot:
   plot_ir_error_magnitudes: true
   plot_ir_pose_differences: true
   plot_ir_trajectories: true
-    

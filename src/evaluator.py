@@ -76,6 +76,7 @@ class TrackingEstimationEvaluator:
             )
 
         if self.include_drift_metrics:
+
             drift_metrics = get_drift_metrics(gt_tracking_glob, pred_tracking_glob)
             drift_metrics["hausdorff"] = hausdorff_distance(
                 gt_tracking_glob, pred_tracking_glob
