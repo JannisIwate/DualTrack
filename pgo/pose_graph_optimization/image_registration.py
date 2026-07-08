@@ -350,10 +350,10 @@ def sample_pairs_by_step(
 ) -> tuple[
     np.ndarray,
     np.ndarray,
-    list[np.ndarray],
-    list[np.ndarray],
+    np.ndarray,
+    np.ndarray,
 ]:
-    n = len(frames)
+    n = len(frames) - 1 # last frame has no inbetween transform to next frame
     if step_size > n or n < 2:
         raise ValueError(
             f"Invalid number of frames: {n}"
@@ -362,7 +362,7 @@ def sample_pairs_by_step(
     # sample pairs of frames given step size
     idc1 = np.arange(0, n - step_size, step_size)
     idc2 = idc1 + step_size
-
+    
     last_frame = n - 1
 
     if idc2[-1] != last_frame:
@@ -376,6 +376,10 @@ def sample_pairs_by_step(
     for i in range(len(idc1)):
         ref_transforms.append(np.linalg.inv(acc_transforms_all[idc1[i]]) @ acc_transforms_all[idc2[i]])
         gt_transforms.append(np.linalg.inv(gt_acc_transforms_all[idc1[i]]) @ gt_acc_transforms_all[idc2[i]])
+    
+    # put identity matrix as first element for consistency
+    ref_transforms = np.concatenate((np.eye(4)[None, :, :], np.asarray(ref_transforms)), axis=0)
+    gt_transforms = np.concatenate((np.eye(4)[None, :, :], np.asarray(gt_transforms)), axis=0)
 
     return (
         idc1,

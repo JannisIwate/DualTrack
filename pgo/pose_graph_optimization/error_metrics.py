@@ -52,7 +52,8 @@ def save_results(
     metrics_original: Sequence[dict[str, float]] | None = None,
     metrics_after_pgo: Sequence[dict[str, float]] | None = None,
     ir_metrics: dict[str, Sequence[float]] | None = None,
-    figs: dict | None = None,
+    figs_individual: dict | None = None,
+    figs_general: dict | None = None
 ) -> None:
     
     if metrics_original is None:
@@ -94,12 +95,14 @@ def save_results(
 
         if ir_metrics is not None:
             f.write("image registration:\n\n")
-            ir_df = pd.DataFrame(ir_metrics)
-            f.write(f"  {ir_df.keys()[0]}: {ir_df.iloc[0, 0]}\n") # write metric type
-            ir_mean = ir_df.loc[:, ir_df.columns[1:]].mean()
-            for key, value in ir_mean.items():
-                f.write(f"  {key}: {value}\n")
-            f.write("\n")
+            
+            for metrics in ir_metrics:
+                ir_df = pd.DataFrame(metrics)
+                f.write(f"  {ir_df.keys()[0]}: {ir_df.iloc[0, 0]}\n") # write metric type
+                ir_mean = ir_df.loc[:, ir_df.columns[1:]].mean()
+                for key, value in ir_mean.items():
+                    f.write(f"  {key}: {value}\n")
+                f.write("\n")
 
     graph_path = os.path.join(output_dir, "graph.h5")
 
@@ -119,11 +122,22 @@ def save_results(
             compression="gzip",
         )
 
-    if figs:
-        figs_dir = os.path.join(output_dir, "figs")
-        os.makedirs(figs_dir, exist_ok=True)
-        for fig_name, fig in figs.items():
-            fig.savefig(os.path.join(figs_dir, fig_name))
+    if figs_general:
+
+        for fig_name, fig in figs_general.items():
+
+            fig.savefig(os.path.join(output_dir, fig_name))
+
+    if figs_individual:
+
+        for sweep_name, fig_collection in figs_individual.items():
+
+            figs_dir = os.path.join(output_dir, sweep_name)
+            os.makedirs(figs_dir, exist_ok=True)
+
+            for fig_name, fig in fig_collection.items():
+
+                fig.savefig(os.path.join(figs_dir, fig_name))
 
     print(f"Saved results to {output_dir}")
 

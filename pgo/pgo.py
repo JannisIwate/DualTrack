@@ -66,7 +66,8 @@ def main():
     }
     ir_metrics_all = None
 
-    figs = {}
+    figs_individual = {}
+    figs_general = {}
 
     # data
     data = os.listdir(input_pred)
@@ -83,7 +84,7 @@ def main():
         ## load data
         # load file
         sweep_path = os.path.join(input_pred, el, "export.h5")
-        sweep_name = f"sweep{i}"
+        sweep_name = f"sweep_{i}"
 
         if not os.path.isfile(sweep_path):
             continue
@@ -106,8 +107,6 @@ def main():
                 with h5py.File(gt_file, "r") as f_gt:
                     gt = np.array(f_gt["tracking"][:nr_of_frames]) # acc gt poses in arbitrary world coords
                     gt_acc, gt_inbetween = get_global_and_relative_gt_trackings(gt) # get normalized acc gt (first pose is identity) and relative gt
-                    # gt_acc = np.round(gt_acc, decimals=8)
-                    # gt_inbetween = np.round(gt_inbetween, decimals=8)
                     # first transform of gt_acc is identity (or rather almost due to numerics)
                     # first transform of gt_inbetween is identity as first frame is first frame
                     # gt_inbetween is Ti->j, forward
@@ -123,9 +122,6 @@ def main():
 
         image_shape_hw = tuple(dimensions[:2])
         image_shape_hw = (image_shape_hw[1], image_shape_hw[0])
-
-        # reformat
-        #pred_inbetween = compute_inbetween_transforms(pred_acc) # relative transforms, starts with identity (see above), differs slightly from pred_loc in DT pipeline :(
 
         ## build graph
         # smoothing edges
@@ -182,12 +178,14 @@ def main():
                 STEP = config.image_registration.step
             else:
                 STEP = 1
-            idc1, idc2, ir_ref_transforms, ir_gt_transforms = sample_pairs_by_step(frames, pred_acc, gt_acc, STEP)
+            idc1, idc2, ir_ref_transforms_inbetween, ir_gt_transforms_inbetween = sample_pairs_by_step(frames, pred_acc, gt_acc, STEP) # first element is identity
             nr_valid_irs = 0
 
-            ir_transforms = []
+            ir_frames_1 = frames[idc1]
+            ir_frames_2 = frames[idc2]
+            ir_transforms_inbetween = np.tile(np.eye(4), (ir_ref_transforms_inbetween.shape[0], 1, 1))
 
-            for i, _ in enumerate(frames[idc1]):
+            for i, _ in enumerate(idc1):
 
                 start_time = time.time() # measure IR execution time
                 (transform_ir,
@@ -197,21 +195,21 @@ def main():
                  metric_before_gt,
                  metric_before_pred,
                  metric_after
-                ) = register(frame_i=frames[idc1][i],
-                            frame_j=frames[idc2][i],
-                            ref_transform=ir_ref_transforms[i],
-                            gt_transform=ir_gt_transforms[i],
+                ) = register(frame_i=ir_frames_1[i],
+                            frame_j=ir_frames_2[i],
+                            ref_transform=ir_ref_transforms_inbetween[i+1], # skip first identity element
+                            gt_transform=ir_gt_transforms_inbetween[i+1],
                             **config.image_registration
                             )
                 ir_execution_time = time.time() - start_time
                 
-                ir_metrics_all["metric"] = config.image_registration.sitk.metric
+                ir_metrics_all["metric"] = config.image_registration.sitk.metric # single value is added, individual scans still distinguishable
                 ir_metrics_all["metric_before"].append(metric_before_identity)
                 ir_metrics_all["metric_before_gt"].append(metric_before_gt)
                 ir_metrics_all["metric_before_pred"].append(metric_before_pred)
                 ir_metrics_all["metric_after"].append(metric_after)
                 ir_metrics_all["ir_execution_time"].append(ir_execution_time)
-                ir_transforms.append(transform_ir)
+                ir_transforms_inbetween[i+1] = transform_ir # skip first identity element
 
                 if valid:
                     pred_graph.add_constraint(
@@ -222,40 +220,45 @@ def main():
                     )
                     nr_valid_irs = nr_valid_irs + 1
             
-            if "plot_ir_pose_differences" in config.plot:
-                
-                figs[f"{sweep_name}_ir_pose_diffs_ref_gt"] = plot_pose_differences(ir_ref_transforms, ir_gt_transforms, title="GT vs Pred") # gt is blue -> general direction is fine
-                figs[f"{sweep_name}_ir_pose_diffs_ir_gt"] = plot_pose_differences(ir_transforms, ir_gt_transforms, title="GT vs IR") # -> general direction is fine but sometimes very big errors
+            if "plot" in config:
 
-            if "plot_ir_trajectories" in config.plot:
+                if "plot_ir_pose_differences" in config.plot:
+                    
+                    figs_individual[f"{sweep_name}"] = {} # populate sweep key with sub dict first
+                    figs_individual[f"{sweep_name}"]["ir_pose_diffs_ref_gt"] = plot_pose_differences(ir_ref_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs Pred") # gt is blue -> general direction is fine
+                    figs_individual[f"{sweep_name}"]["ir_pose_diffs_ir_gt"] = plot_pose_differences(ir_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs IR") # -> general direction is fine but sometimes very big errors
 
-                figs[f"{sweep_name}_ir_trajectories_gt_ref_ir"] = plot_trajectories([extract_positions(inbetween_to_accumulated(np.array(ir_gt_transforms))),
-                                                                                    extract_positions(inbetween_to_accumulated(np.array(ir_ref_transforms))),
-                                                                                    extract_positions(inbetween_to_accumulated(np.array(ir_transforms)))],
-                                                                                    labels=["GT", "Initial estimated", "IR"],
-                                                                                    colors=["blue", "red", "black"])
+                if "plot_ir_trajectories" in config.plot:
+
+                    figs_individual[f"{sweep_name}"]["ir_trajectories_gt_ref_ir"] = plot_trajectories([extract_positions(inbetween_to_accumulated(ir_gt_transforms_inbetween[1:])), # skip first identity element
+                                                                                                        extract_positions(inbetween_to_accumulated(ir_ref_transforms_inbetween[1:])),
+                                                                                                        extract_positions(inbetween_to_accumulated(ir_transforms_inbetween[1:]))],
+                                                                                                        labels=["GT", "Initial estimated", "IR"],
+                                                                                                        colors=["blue", "red", "black"])
 
                 # STEP = 1, ein Scan
                 # -> IR passt von den Richtungen her einigermassen, allerdings ist gibt es viel mehr Drift
                 # -> Fehler bei beiden und allen 6DoF sind weitgehend mittelwertfrei
                 # -> GT Trajektorie "zittert", IR auch, pred ist glatter (vor allem Winkel)
             
-            ir_transforms_all["ir_transforms"].extend(ir_transforms)
-            ir_transforms_all["ir_gt_transforms"].extend(ir_gt_transforms)
-            ir_transforms_all["ir_ref_transforms"].extend(ir_ref_transforms)
+            ir_transforms_all["ir_transforms"].append(ir_transforms_inbetween[1:]) # ignore first identity transform
+            ir_transforms_all["ir_gt_transforms"].append(ir_gt_transforms_inbetween[1:])
+            ir_transforms_all["ir_ref_transforms"].append(ir_ref_transforms_inbetween[1:])
+            ir_transforms_acc = inbetween_to_accumulated(ir_transforms_inbetween[1:])
+            ir_gt_transforms_acc = inbetween_to_accumulated(ir_gt_transforms_inbetween[1:])
 
-            gt_acc = torch.tensor(gt_acc) # to match 
             drift_metrics_ir_vs_gt = get_drift_metrics(
-                gt_acc,
-                inbetween_to_accumulated(np.array(ir_transforms)),
+                ir_gt_transforms_acc,
+                ir_transforms_acc,
             )
+            breakpoint()
             drift_metrics_after_ir.append(drift_metrics_ir_vs_gt)
 
             ddf_metrics_ir = get_ddf_metrics(
-                inbetween_to_accumulated(np.array(ir_transforms)),
-                np.concatenate((np.eye(4)[None, :, :], np.asarray(ir_transforms)), axis=0),
-                gt_acc,
-                gt_inbetween,
+                ir_transforms_acc,
+                ir_transforms_inbetween,
+                ir_gt_transforms_acc,
+                ir_gt_transforms_inbetween,
                 calibration_matrix,
                 image_shape_hw,
                 mode="5pt-landmark",
@@ -313,27 +316,20 @@ def main():
         #break
 
     # --------------------------------------------------------
-    # output results
+    # process results
     # --------------------------------------------------------
     if "plot" in config:
-        if "print_ir_metrics" in config.plot:
-            print(f"IR Metric: {config.image_registration.sitk.metric}\n")
-            print(f"avg ir metric before: {np.average(np.array(ir_metrics_all['metric_before']))}")
-            print(f"avg ir metric before (gt): {np.average(np.array(ir_metrics_all['metric_before_gt']))}")
-            print(f"avg ir metric before (pred): {np.average(np.array(ir_metrics_all['metric_before_pred']))}")
-            print(f"avg ir metric after: {np.average(np.array(ir_metrics_all['metric_after']))}")
-            print(f"avg ir execution time (s): {np.average(np.array(ir_metrics_all['ir_execution_time']))}")
-            print(f"drift and ddf metrics:\n{ddf_metrics_after_ir}\n{drift_metrics_after_ir}")
 
         if "plot_ir_error_magnitudes" in config.plot:
-            figs[f"{sweep_name}_ir_error_mags_ref_gt"] = plot_motion_vs_error(
-                np.array(ir_transforms_all["ir_ref_transforms"]),
-                np.array(ir_transforms_all["ir_gt_transforms"]),
+
+            figs_general["ir_error_mags_ref_gt"] = plot_motion_vs_error(
+                np.squeeze(np.array(ir_transforms_all["ir_ref_transforms"])), # transform to np array and combine
+                np.squeeze(np.array(ir_transforms_all["ir_gt_transforms"])),
                 title="Ref vs GT"
             )
-            figs[f"{sweep_name}_ir_error_mags_ir_gt"] = plot_motion_vs_error(
-                np.array(ir_transforms_all["ir_transforms"]),
-                np.array(ir_transforms_all["ir_gt_transforms"]),
+            figs_general["ir_error_mags_ir_gt"] = plot_motion_vs_error(
+                np.squeeze(np.array(ir_transforms_all["ir_transforms"])),
+                np.squeeze(np.array(ir_transforms_all["ir_gt_transforms"])),
                 title="IR vs GT"
             )
 
@@ -345,8 +341,9 @@ def main():
             optimized=optimized_pred,
             metrics_original=[drift_metrics_original, ddf_metrics_original],
             metrics_after_pgo=[drift_metrics_after_pgo, ddf_metrics_after_pgo],
-            ir_metrics=ir_metrics_all,
-            figs=figs,
+            ir_metrics=[ir_metrics_all, drift_metrics_after_ir, ddf_metrics_after_ir],
+            figs_individual=figs_individual,
+            figs_general=figs_general
         )
 
     # plt.show()
@@ -492,6 +489,8 @@ def plot_trajectories(trajectories, labels=None, colors=None, title:str = "Traje
 
         ax.scatter(xs[0], ys[0], zs[0], color=colors[i])
         ax.scatter(xs[-1], ys[-1], zs[-1], color=colors[i], marker="s")
+    print("plot_trajectories x y z:")
+    print(xs[-1], ys[-1], zs[-1])
 
     ax.set_title("Pose Graph Trajectories")
     ax.legend()
