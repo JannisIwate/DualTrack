@@ -101,7 +101,8 @@ def itk_register(
     gt_transform: np.ndarray,
     metric: str = "mi",
     optimizer:str = "gradient",
-    multi_resolution = False
+    multi_resolution = False,
+    use_center = False
 ) -> tuple[
     np.ndarray,
     float,
@@ -122,6 +123,29 @@ def itk_register(
     fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 480x640 (x, y), other way round for sitk!
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
+    # use center part of image which is not as affected as rim by pitch and roll
+    if use_center:
+
+        # image_plot(fixed, title="fixed before")
+        # image_plot(moving, title="moving before")
+
+        roi_size, roi_index = get_center_roi_params(fixed.GetSize(), 0.5)
+
+        fixed = sitk.RegionOfInterest(
+            fixed,
+            size=roi_size,
+            index=roi_index,
+        )
+        moving = sitk.RegionOfInterest(
+            moving,
+            size=roi_size,
+            index=roi_index,
+        )
+        # image_plot(fixed, title="fixed after")
+        # image_plot(moving, title="moving after")
+        # plt.show()
+        # breakpoint()
+        
     fixed.SetSpacing((SPACING_X, SPACING_Y))
     moving.SetSpacing((SPACING_X, SPACING_Y))
 
@@ -145,9 +169,7 @@ def itk_register(
         )
     
     # mask to account for non-changing background
-    mask = frame_i > 0
-    mask = sitk.GetImageFromArray(mask.astype(np.uint8))
-    mask.CopyInformation(fixed) # copy meta data
+    mask = fixed > 0
     registration.SetMetricFixedMask(mask)
     registration.SetMetricMovingMask(mask)
 
@@ -387,3 +409,13 @@ def sample_pairs_by_step(
         np.array(ref_transforms),
         np.array(gt_transforms),
     )
+
+def get_center_roi_params(size, fraction):
+
+    if not (0 < fraction <= 1):
+        raise ValueError("fraction must be in the range (0, 1].")
+
+    roi_size = [max(1, int(round(s * fraction))) for s in size]
+    roi_index = [(s - rs) // 2 for s, rs in zip(size, roi_size)]
+
+    return roi_size, roi_index

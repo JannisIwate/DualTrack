@@ -226,7 +226,9 @@ def main():
                     
                     figs_individual[f"{sweep_name}"] = {} # populate sweep key with sub dict first
                     figs_individual[f"{sweep_name}"]["ir_pose_diffs_ref_gt"] = plot_pose_differences(ir_ref_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs Pred") # gt is blue -> general direction is fine
+                    plt.close()
                     figs_individual[f"{sweep_name}"]["ir_pose_diffs_ir_gt"] = plot_pose_differences(ir_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs IR") # -> general direction is fine but sometimes very big errors
+                    plt.close()
 
                 if "plot_ir_trajectories" in config.plot:
 
@@ -235,6 +237,7 @@ def main():
                                                                                                         extract_positions(inbetween_to_accumulated(ir_transforms_inbetween[1:]))],
                                                                                                         labels=["GT", "Initial estimated", "IR"],
                                                                                                         colors=["blue", "red", "black"])
+                    plt.close()
 
                 # STEP = 1, ein Scan
                 # -> IR passt von den Richtungen her einigermassen, allerdings ist gibt es viel mehr Drift
@@ -251,7 +254,6 @@ def main():
                 ir_gt_transforms_acc,
                 ir_transforms_acc,
             )
-            breakpoint()
             drift_metrics_after_ir.append(drift_metrics_ir_vs_gt)
 
             ddf_metrics_ir = get_ddf_metrics(
@@ -321,17 +323,19 @@ def main():
     if "plot" in config:
 
         if "plot_ir_error_magnitudes" in config.plot:
-
+            
             figs_general["ir_error_mags_ref_gt"] = plot_motion_vs_error(
-                np.squeeze(np.array(ir_transforms_all["ir_ref_transforms"])), # transform to np array and combine
-                np.squeeze(np.array(ir_transforms_all["ir_gt_transforms"])),
+                np.concatenate(ir_transforms_all["ir_ref_transforms"], axis=0), # transform to np array and combine
+                np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
                 title="Ref vs GT"
             )
+            plt.close()
             figs_general["ir_error_mags_ir_gt"] = plot_motion_vs_error(
-                np.squeeze(np.array(ir_transforms_all["ir_transforms"])),
-                np.squeeze(np.array(ir_transforms_all["ir_gt_transforms"])),
+                np.concatenate(ir_transforms_all["ir_transforms"], axis=0), # transform to np array and combine
+                np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
                 title="IR vs GT"
             )
+            plt.close()
 
     if "output_dir" in config.dirs:
         save_results(
@@ -425,8 +429,10 @@ def plot_motion_vs_error(est: np.ndarray, gt: np.ndarray, title:str = "Error mag
     # ---------- Rotation ----------
     R_gt = gt[:, :3, :3]
     R_est = est[:, :3, :3]
-
-    # Relative rotation
+    # print(R_gt.shape, R_est.shape)
+    # breakpoint()
+    # # Relative rotation
+    # print(len(R_gt), len(R_est))
     R_err = np.matmul(np.transpose(R_gt, (0, 2, 1)), R_est)
 
     # Rotation magnitude of GT
@@ -489,8 +495,6 @@ def plot_trajectories(trajectories, labels=None, colors=None, title:str = "Traje
 
         ax.scatter(xs[0], ys[0], zs[0], color=colors[i])
         ax.scatter(xs[-1], ys[-1], zs[-1], color=colors[i], marker="s")
-    print("plot_trajectories x y z:")
-    print(xs[-1], ys[-1], zs[-1])
 
     ax.set_title("Pose Graph Trajectories")
     ax.legend()

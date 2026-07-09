@@ -6,8 +6,8 @@ dirs:
 
 general:
   ref_values_sigma: 1e-1
-  nr_scans: 1
-  nr_frames: 10
+  nr_scans: 10
+  nr_frames: 100
 
 image_registration:
   cross_check: true
@@ -18,6 +18,7 @@ image_registration:
     metric: "mi"
     optimizer: "gradient"
     multi_resolution: true
+    use_center: true
 
 plot:
   print_ir_metrics: true

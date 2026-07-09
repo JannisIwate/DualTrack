@@ -168,8 +168,6 @@ def compute_mean_average_errors(gt_tracking, pred_tracking):
 def get_drift(gt_tracking, pred_tracking):
     translation_pred = matrix_to_pose_vector(pred_tracking)[:, :3]
     translation_gt = matrix_to_pose_vector(gt_tracking)[:, :3]
-    print("get_drift last trans:")
-    print(translation_pred[-1])
 
     return np.sqrt(((translation_pred - translation_gt) ** 2).sum(-1))
 
