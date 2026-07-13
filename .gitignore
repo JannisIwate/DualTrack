@@ -9,6 +9,8 @@ DualTrack_auxiliary/validation_data_*
 DualTrack_auxiliary/data_*
 DualTrack_auxiliary/tusrec25_val_data/
 presentation_images
+pgo/experiments
+pgo/experiments/pgo/experiments
 
 logs
 network-data
