@@ -102,7 +102,8 @@ def itk_register(
     metric: str = "mi",
     optimizer:str = "gradient",
     multi_resolution = False,
-    use_center = False
+    use_center = False,
+    patch_mask = False
 ) -> tuple[
     np.ndarray,
     float,
@@ -124,7 +125,7 @@ def itk_register(
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
     # use center part of image which is not as affected as rim by pitch and roll
-    if use_center:
+    if use_center: # -> Verbesserung von 233% fuer FDR, 240% fuer GPE, 260% fuer Ausfuehrungszeit)
 
         # image_plot(fixed, title="fixed before")
         # image_plot(moving, title="moving before")
@@ -170,8 +171,25 @@ def itk_register(
     
     # mask to account for non-changing background
     mask = fixed > 0
+    
     registration.SetMetricFixedMask(mask)
     registration.SetMetricMovingMask(mask)
+
+    # extend mask to parts of image which differ to much (spawning feature)
+    if patch_mask: # -> Verbesserung im Vergleich zu nur Centering von 5% FDR, keine signifikante Verbesserung von GPE, 1.5% fuer Ausfuehrungszeit
+
+        mask = get_mask_from_patches(mask, fixed, moving, ref_transform, 4, 0.7) # 4 and 0.7 turn out to be ideal
+
+    mask.CopyInformation(fixed)
+    # image_plot(mask, title="mask")
+    # image_plot(fixed, title="fixed")
+    # image_plot(moving, title="moving")
+    # plt.show()
+    # breakpoint()
+
+    registration.SetMetricFixedMask(mask)
+    registration.SetMetricMovingMask(mask)
+
 
     # interpolator and optimizer
     registration.SetInterpolator(sitk.sitkLinear)
@@ -196,7 +214,7 @@ def itk_register(
             "Use 'gradient' or 'exhaustive'."
         )
 
-    # multi-resolution (perform registration at different resolutions)
+    # multi-resolution (perform registration at different resolutions) -> keine signifikante Verbesserung von FDR oder GPE, -25% fuer Ausfuehrungszeit
     if multi_resolution:
         registration.SetShrinkFactorsPerLevel([4, 2, 1])
         registration.SetSmoothingSigmasPerLevel([2, 1, 0])
@@ -419,3 +437,117 @@ def get_center_roi_params(size, fraction):
     roi_index = [(s - rs) // 2 for s, rs in zip(size, roi_size)]
 
     return roi_size, roi_index
+
+
+def get_mask_from_patches(mask, fixed, moving, ref_transform, grid_size, threshold):
+
+    # init
+    fixed_np = sitk.GetArrayViewFromImage(fixed).astype(np.float32)
+    moving_np = sitk.GetArrayViewFromImage(moving).astype(np.float32)
+
+    mask_np = sitk.GetArrayFromImage(mask).astype(np.uint8)
+
+    rows, cols = fixed_np.shape
+
+    grid_y = grid_size
+    grid_x = grid_size
+
+    patch_h = rows // grid_y
+    patch_w = cols // grid_x
+
+    T = _6dof_to_sitk(ref_transform)
+
+    for gy in range(grid_y):
+        for gx in range(grid_x):
+            
+            # determine grid coords
+            y0 = gy * patch_h
+            y1 = rows if gy == grid_y - 1 else (gy + 1) * patch_h
+
+            x0 = gx * patch_w
+            x1 = cols if gx == grid_x - 1 else (gx + 1) * patch_w
+            
+            # get fixed patch pixel values
+            patch_fixed = fixed_np[y0:y1, x0:x1]
+
+            corners_fixed = [
+                (x0, y0),
+                (x1 - 1, y0),
+                (x0, y1 - 1),
+                (x1 - 1, y1 - 1),
+            ]
+
+            corners_moving = []
+
+            # transform corner points of fixed
+            for corner in corners_fixed:
+
+                p_phys = fixed.TransformIndexToPhysicalPoint(corner)
+                p_phys_moving = T.TransformPoint(p_phys)
+
+                try:
+                    idx = moving.TransformPhysicalPointToIndex(p_phys_moving)
+                    corners_moving.append(idx)
+                except RuntimeError:
+                    continue
+            
+            # skip patch if it reaches out of image
+            if len(corners_moving) != 4:
+
+                mask_np[y0:y1, x0:x1] = 0
+                continue
+            
+            # get integer outline/bounding box
+            xs = [p[0] for p in corners_moving]
+            ys = [p[1] for p in corners_moving]
+
+            mx0 = max(0, int(np.floor(min(xs))))
+            mx1 = min(cols, int(np.ceil(max(xs))) + 1)
+
+            my0 = max(0, int(np.floor(min(ys))))
+            my1 = min(rows, int(np.ceil(max(ys))) + 1)
+
+            # skip invalid patch
+            if mx1 <= mx0 or my1 <= my0:
+
+                mask_np[y0:y1, x0:x1] = 0
+                continue
+            
+            # get moving patch pixel values
+            patch_moving = moving_np[my0:my1, mx0:mx1]
+            
+            # skip patch if it is not in image
+            if patch_moving.size == 0:
+
+                mask_np[y0:y1, x0:x1] = 0
+                continue
+            
+            # adapt moving shape with fixed shape in case its dims are insufficient
+            if patch_moving.shape != patch_fixed.shape:
+
+                patch_moving = patch_moving[
+                    :patch_fixed.shape[0],
+                    :patch_fixed.shape[1],
+                ]
+                # skip if not possible
+                if patch_moving.shape != patch_fixed.shape:
+
+                    mask_np[y0:y1, x0:x1] = 0
+                    continue
+                    
+            
+            # get similarity value (here: ncc)
+            pf = patch_fixed - patch_fixed.mean()
+            pm = patch_moving - patch_moving.mean()
+
+            denom = np.linalg.norm(pf) * np.linalg.norm(pm)
+
+            if denom < 1e-6:
+                similarity = 1.0
+            else:
+                similarity = np.sum(pf * pm) / denom
+
+            if similarity < threshold:
+                mask_np[y0:y1, x0:x1] = 0
+
+    return sitk.GetImageFromArray(mask_np)

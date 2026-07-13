@@ -46,24 +46,15 @@ def avg_trajectory_error(transforms_1: Sequence[np.ndarray], transforms_2: Seque
 
 def save_results(
     output_dir: str,
-    graph: Any,
     initial: Sequence[np.ndarray],
     optimized: Sequence[np.ndarray],
+    graph: Any = None,
     metrics_original: Sequence[dict[str, float]] | None = None,
     metrics_after_pgo: Sequence[dict[str, float]] | None = None,
     ir_metrics: dict[str, Sequence[float]] | None = None,
     figs_individual: dict | None = None,
     figs_general: dict | None = None
 ) -> None:
-    
-    if metrics_original is None:
-        metrics_original = []
-
-    if metrics_after_pgo is None:
-        metrics_after_pgo = []
-
-    # if ir_metrics is None:
-    #     ir_metrics = {}
 
     try:
         shutil.rmtree(output_dir)
@@ -75,52 +66,62 @@ def save_results(
     metrics_path = os.path.join(output_dir, "metrics.txt")
 
     with open(metrics_path, "w") as f:
-        f.write("initial:\n\n")
 
-        for metrics in metrics_original:
-            metrics_df = pd.DataFrame(metrics).mean()
+        if len(metrics_original[0]) > 0:
 
-            for key, value in metrics_df.items():
-                f.write(f"  {key}: {value}\n")
-            f.write("\n")
+            f.write("initial:\n\n")
 
-        f.write("after pgo:\n\n")
+            for metrics in metrics_original:
+                metrics_df = pd.DataFrame(metrics).mean()
 
-        for metrics in metrics_after_pgo:
-            metrics_df = pd.DataFrame(metrics).mean()
-
-            for key, value in metrics_df.items():
-                f.write(f"  {key}: {value}\n")
-            f.write("\n")
-
-        if ir_metrics is not None:
-            f.write("image registration:\n\n")
-            
-            for metrics in ir_metrics:
-                ir_df = pd.DataFrame(metrics)
-                f.write(f"  {ir_df.keys()[0]}: {ir_df.iloc[0, 0]}\n") # write metric type
-                ir_mean = ir_df.loc[:, ir_df.columns[1:]].mean()
-                for key, value in ir_mean.items():
+                for key, value in metrics_df.items():
                     f.write(f"  {key}: {value}\n")
                 f.write("\n")
 
-    graph_path = os.path.join(output_dir, "graph.h5")
+        if len(metrics_after_pgo[0]) > 0:
 
-    with h5py.File(graph_path, "w") as f:
-        graph_group = f.create_group("graph")
-        graph_group.attrs["num_factors"] = graph.size()
+            f.write("after pgo:\n\n")
 
-        f.create_dataset(
-            "initial",
-            data=np.asarray(initial),
-            compression="gzip",
-        )
+            for metrics in metrics_after_pgo:
+                metrics_df = pd.DataFrame(metrics).mean()
 
-        f.create_dataset(
-            "optimized",
-            data=np.asarray(optimized),
-            compression="gzip",
-        )
+                for key, value in metrics_df.items():
+                    f.write(f"  {key}: {value}\n")
+                f.write("\n")
+
+        if len(ir_metrics[0]) > 0:
+
+            f.write("image registration:\n\n")
+            
+            for metrics in ir_metrics:
+
+                if len(metrics) > 0:
+
+                    ir_df = pd.DataFrame(metrics)
+                    f.write(f"  {ir_df.keys()[0]}: {ir_df.iloc[0, 0]}\n") # write metric type
+                    ir_mean = ir_df.loc[:, ir_df.columns[1:]].mean()
+                    for key, value in ir_mean.items():
+                        f.write(f"  {key}: {value}\n")
+                    f.write("\n")
+
+    if graph != None:
+        graph_path = os.path.join(output_dir, "graph.h5")
+
+        with h5py.File(graph_path, "w") as f:
+            graph_group = f.create_group("graph")
+            graph_group.attrs["num_factors"] = graph.size()
+
+            f.create_dataset(
+                "initial",
+                data=np.asarray(initial),
+                compression="gzip",
+            )
+
+            f.create_dataset(
+                "optimized",
+                data=np.asarray(optimized),
+                compression="gzip",
+            )
 
     if figs_general:
 

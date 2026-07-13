@@ -48,7 +48,15 @@ def main():
 
     OmegaConf.resolve(config)
 
-    input_pred = config.dirs.input_pred  
+    if OmegaConf.select(config, "dirs.input_pred") is None:
+        raise ValueError("Missing required config entry: dirs.input_pred")
+    input_pred = config.dirs.input_pred
+
+    if OmegaConf.select(config, "general.pgo") is not None and \
+           OmegaConf.select(config, "general.pgo"):
+        execute_pgo = True
+    else:
+        execute_pgo = False
 
     # variables
     drift_metrics_original = []
@@ -59,12 +67,8 @@ def main():
     ddf_metrics_after_pgo = []
     ddf_metrics_after_ir = []
 
-    ir_transforms_all = {
-        "ir_transforms": [],
-        "ir_gt_transforms": [],
-        "ir_ref_transforms": [],
-    }
-    ir_metrics_all = None
+    ir_transforms_all = {}
+    ir_metrics_all = {}
 
     figs_individual = {}
     figs_general = {}
@@ -72,7 +76,10 @@ def main():
     # data
     data = os.listdir(input_pred)
     nr_of_scans = OmegaConf.select(config, "general.nr_scans")
-    data = islice(data, nr_of_scans) if nr_of_scans is not None else data
+    start = OmegaConf.select(config, "general.start_scan")
+    if start == None:
+        start = 1
+    data = islice(data, start-1, start+nr_of_scans-1) if nr_of_scans is not None else data
 
 
     # --------------------------------------------------------
@@ -101,7 +108,7 @@ def main():
             pred_acc = np.array(f["pred_tracking_glob"][:nr_of_frames]) # starts with identity, normalized acc world coords
             pred_inbetween = np.array(f["pred_tracking_loc"][:nr_of_frames])
 
-            if "input_gt" in config.dirs:
+            if OmegaConf.select(config, "dirs.input_gt") is not None:
                 gt_file = os.path.join(config.dirs.input_gt, f"{el}.h5")
 
                 with h5py.File(gt_file, "r") as f_gt:
@@ -124,45 +131,45 @@ def main():
         image_shape_hw = (image_shape_hw[1], image_shape_hw[0])
 
         ## build graph
-        # smoothing edges
-        if "trajectory_smoothing" in config:
-            pass
-            # TODO: implement trajectory smoothing
-
-        else:
+        if execute_pgo:
             pred_graph = PoseGraph(
                 poses=pred_acc,
                 constraints=pred_inbetween,
                 initial_pose=pred_acc[0]
             )
 
-        # LC constraints
-        if "loop_closure" in config:
+            # LC constraints
+            if OmegaConf.select(config, "loop_closure") is not None:
 
-            loop_closures = detect_loop_closures(
-                feature_vectors=fvs,
-                frames=frames,
-                transforms=pred_inbetween,
-                image_registration_cfg = config.image_registration,
-                **config.loop_closure
-            )
-
-            for lc in loop_closures:
-
-                i = lc["source_idx"]
-                j = lc["target_idx"]
-                transform = lc["transform"]
-                score = lc["combined_score"]
-
-                pred_graph.add_constraint(
-                    i,
-                    j,
-                    transform,
-                    registration_noise_model(confidence=score, ref_sigma=config.general.ref_values_sigma)
+                loop_closures = detect_loop_closures(
+                    feature_vectors=fvs,
+                    frames=frames,
+                    transforms=pred_inbetween,
+                    image_registration_cfg = config.image_registration,
+                    **config.loop_closure
                 )
 
-        # IR constraints
-        if "image_registration" in config:
+                for lc in loop_closures:
+
+                    i = lc["source_idx"]
+                    j = lc["target_idx"]
+                    transform = lc["transform"]
+                    score = lc["combined_score"]
+
+                    pred_graph.add_constraint(
+                        i,
+                        j,
+                        transform,
+                        registration_noise_model(confidence=score, ref_sigma=config.general.ref_values_sigma)
+                    )
+            
+            # OF
+            if OmegaConf.select(config, "optical_flow") is not None:
+                # Implement optical flow logic here
+                pass
+
+        # IR (constraints or just IR)
+        if OmegaConf.select(config, "image_registration") is not None:
 
             ir_metrics_all = {
                 "metric": str,
@@ -171,6 +178,12 @@ def main():
                 "metric_before_pred": [],
                 "metric_after": [],
                 "ir_execution_time": [],
+            }
+
+            ir_transforms_all = {
+                "ir_transforms": [],
+                "ir_gt_transforms": [],
+                "ir_ref_transforms": [],
             }
 
             # get transforms for non-adjacent frames (STEP > 1)
@@ -210,8 +223,12 @@ def main():
                 ir_metrics_all["metric_after"].append(metric_after)
                 ir_metrics_all["ir_execution_time"].append(ir_execution_time)
                 ir_transforms_inbetween[i+1] = transform_ir # skip first identity element
+                
+                if valid and execute_pgo:
 
-                if valid:
+                    if OmegaConf.select(config, "general.ref_values_sigma") is None:
+                        raise ValueError("Missing required config entry: general.ref_values_sigma")
+                    
                     pred_graph.add_constraint(
                         idc1[i],
                         idc2[i],
@@ -220,9 +237,10 @@ def main():
                     )
                     nr_valid_irs = nr_valid_irs + 1
             
-            if "plot" in config:
+            # create plots
+            if OmegaConf.select(config, "plot") is not None:
 
-                if "plot_ir_pose_differences" in config.plot:
+                if OmegaConf.select(config, "plot.plot_ir_pose_differences") is not None:
                     
                     figs_individual[f"{sweep_name}"] = {} # populate sweep key with sub dict first
                     figs_individual[f"{sweep_name}"]["ir_pose_diffs_ref_gt"] = plot_pose_differences(ir_ref_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs Pred") # gt is blue -> general direction is fine
@@ -230,13 +248,15 @@ def main():
                     figs_individual[f"{sweep_name}"]["ir_pose_diffs_ir_gt"] = plot_pose_differences(ir_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs IR") # -> general direction is fine but sometimes very big errors
                     plt.close()
 
-                if "plot_ir_trajectories" in config.plot:
+                if OmegaConf.select(config, "plot.plot_ir_trajectories") is not None:
 
                     figs_individual[f"{sweep_name}"]["ir_trajectories_gt_ref_ir"] = plot_trajectories([extract_positions(inbetween_to_accumulated(ir_gt_transforms_inbetween[1:])), # skip first identity element
                                                                                                         extract_positions(inbetween_to_accumulated(ir_ref_transforms_inbetween[1:])),
                                                                                                         extract_positions(inbetween_to_accumulated(ir_transforms_inbetween[1:]))],
                                                                                                         labels=["GT", "Initial estimated", "IR"],
                                                                                                         colors=["blue", "red", "black"])
+                    # plt.show()
+                    # breakpoint()
                     plt.close()
 
                 # STEP = 1, ein Scan
@@ -244,6 +264,7 @@ def main():
                 # -> Fehler bei beiden und allen 6DoF sind weitgehend mittelwertfrei
                 # -> GT Trajektorie "zittert", IR auch, pred ist glatter (vor allem Winkel)
             
+            # store results
             ir_transforms_all["ir_transforms"].append(ir_transforms_inbetween[1:]) # ignore first identity transform
             ir_transforms_all["ir_gt_transforms"].append(ir_gt_transforms_inbetween[1:])
             ir_transforms_all["ir_ref_transforms"].append(ir_ref_transforms_inbetween[1:])
@@ -266,15 +287,15 @@ def main():
                 mode="5pt-landmark",
             )
             ddf_metrics_after_ir.append(ddf_metrics_ir)
-
-        if "optical_flow" in config:
-            # Implement optical flow logic here
-            pass
             
         ## optimize graph
-        pred_graph_gtsam, _, pred_optimized = pred_graph.build_graph()
+        pred_graph_gtsam = None
+        optimized_pred = None
 
-        optimized_pred = gtsam_to_numpy(pred_optimized)
+        if execute_pgo:
+            
+            pred_graph_gtsam, _, pred_optimized = pred_graph.build_graph()
+            optimized_pred = gtsam_to_numpy(pred_optimized)
 
         ## metrics
         # drift metrics
@@ -283,14 +304,15 @@ def main():
             gt_acc,
             pred_acc,
         )
-
-        drift_metrics_optimized_vs_gt = get_drift_metrics(
-            gt_acc,
-            optimized_pred,
-        )
-
         drift_metrics_original.append(drift_metrics_pred_vs_gt)
-        drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
+
+        if execute_pgo:
+
+            drift_metrics_optimized_vs_gt = get_drift_metrics(
+                gt_acc,
+                optimized_pred,
+            )
+            drift_metrics_after_pgo.append(drift_metrics_optimized_vs_gt)
 
         # ddf metrics
         ddf_metrics_pred_vs_gt = get_ddf_metrics(
@@ -302,42 +324,44 @@ def main():
             image_shape_hw,
             mode="5pt-landmark",
         )
-        ddf_metrics_optimized_vs_gt = get_ddf_metrics(
-            optimized_pred,
-            compute_inbetween_transforms(optimized_pred),
-            gt_acc,
-            gt_inbetween,
-            calibration_matrix,
-            image_shape_hw,
-            mode="5pt-landmark",
-        )
-
         ddf_metrics_original.append(ddf_metrics_pred_vs_gt)
-        ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
+
+        if execute_pgo:
+
+            ddf_metrics_optimized_vs_gt = get_ddf_metrics(
+                optimized_pred,
+                compute_inbetween_transforms(optimized_pred),
+                gt_acc,
+                gt_inbetween,
+                calibration_matrix,
+                image_shape_hw,
+                mode="5pt-landmark",
+            )
+            ddf_metrics_after_pgo.append(ddf_metrics_optimized_vs_gt)
 
         #break
 
     # --------------------------------------------------------
     # process results
     # --------------------------------------------------------
-    if "plot" in config:
-
-        if "plot_ir_error_magnitudes" in config.plot:
+    if OmegaConf.select(config, "plot") is not None and \
+       OmegaConf.select(config, "plot.plot_ir_error_magnitudes") is not None:
             
-            figs_general["ir_error_mags_ref_gt"] = plot_motion_vs_error(
-                np.concatenate(ir_transforms_all["ir_ref_transforms"], axis=0), # transform to np array and combine
-                np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
-                title="Ref vs GT"
-            )
-            plt.close()
-            figs_general["ir_error_mags_ir_gt"] = plot_motion_vs_error(
-                np.concatenate(ir_transforms_all["ir_transforms"], axis=0), # transform to np array and combine
-                np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
-                title="IR vs GT"
-            )
-            plt.close()
+        figs_general["ir_error_mags_ref_gt"] = plot_motion_vs_error(
+            np.concatenate(ir_transforms_all["ir_ref_transforms"], axis=0), # transform to np array and combine
+            np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
+            title="Ref vs GT"
+        )
+        plt.close()
+        figs_general["ir_error_mags_ir_gt"] = plot_motion_vs_error(
+            np.concatenate(ir_transforms_all["ir_transforms"], axis=0), # transform to np array and combine
+            np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
+            title="IR vs GT"
+        )
+        plt.close()
 
-    if "output_dir" in config.dirs:
+    if OmegaConf.select(config, "dirs.output_dir") is not None:
+
         save_results(
             output_dir=f"{config.dirs.output_dir}/results",
             graph=pred_graph_gtsam,

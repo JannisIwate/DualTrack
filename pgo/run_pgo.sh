@@ -4,31 +4,15 @@
 WORKDIR="/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo"
 cd "$WORKDIR" || exit 1
 
+## test
+#python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test/config.yaml
+
 ## DualTrack 25
 
-# test
-python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test/config.yaml
-
-# experiment 1
-# python pgo.py -ip /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans/ \
-#               -ig /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted \
-#               -o /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/dt25_tr25_val
-
-# experiment 2
-# python pgo.py -ip /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1/scans/ \
-#               -ig /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted \
-#               -o /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/dt25_tr24_val
-
-
 ## DualTrack 24
+python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test_all/config.yaml
+# python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test_multires_all/config.yaml
+# python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test_multires_center_all/config.yaml
+# python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test_multires_center_grid_all/config.yaml
 
-# experiment 1
-# python pgo.py -ip /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_original \
-#               -ig /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted \
-#               -o /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/dt24_tr24_val
-
-# experiment 2
-# python pgo.py -ip /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_25_val/validation_run_25_data \
-#               -ig /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted \
-#               -o /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/dt24_tr25_val
 
