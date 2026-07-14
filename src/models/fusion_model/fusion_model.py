@@ -250,27 +250,10 @@ def dualtrack_fusion_model(
     )
 
 
-# @register_model
-# def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
-#     model = dualtrack_fusion_model(
-#         local_encoder_cfg=dict(name="dualtrack_loc_enc_stg3_legacy"), **kwargs
-#     )
-#     if pretrained: 
-#         path = os.getenv(
-#             "DUALTRACK_FINAL_CHECKPOINT_PATH"
-#         ) or 'data/checkpoints/dualtrack_final.pt'
-
-#         msg = load_model_weights(
-#             model, path, strict=False,
-#         )
-#         print(f"Loaded pretrained weights from {path} with message: {msg}")
-
-#     return model
-
-
 @register_model
-def dualtrack_tus_rec_2024(pretrained=False, **kwargs):
+def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
     model = dualtrack_fusion_model(
+        # local_encoder_cfg=dict(name="dualtrack_loc_enc_stg3_legacy"), **kwargs
         **kwargs
     )
     if pretrained: 
@@ -278,8 +261,9 @@ def dualtrack_tus_rec_2024(pretrained=False, **kwargs):
             "DUALTRACK_FINAL_CHECKPOINT_PATH"
         ) or 'data/checkpoints/dualtrack_final.pt'
 
-        print(model.load_state_dict(
-            torch.load(path, map_location='cpu')
-        ))
+        msg = load_model_weights(
+            model, path, strict=False,
+        )
+        print(f"Loaded pretrained weights from {path} with message: {msg}")
 
-    return model 
+    return model

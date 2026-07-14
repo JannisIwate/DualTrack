@@ -1,8 +1,7 @@
 model: 
   name: dualtrack_tus_rec_2024
-  #checkpoint: DualTrack_auxiliary/model/dualtrack_tusrec24.pt # load 24 model, equivalent to DUALTRACK_FINAL_CHECKPOINT_PATH in repo
-  # local_encoder_cfg:
-  #   name: dualtrack_loc_enc_stg3_legacy
+  local_encoder_cfg:
+    name: dualtrack_loc_enc_stg3_legacy
 
 data: 
   dataset: tus-rec-24-val

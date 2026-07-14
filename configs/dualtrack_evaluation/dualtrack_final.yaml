@@ -2,7 +2,7 @@ model:
   name: dualtrack_tus_rec_2024
 
 data: 
-  dataset: tus-rec-val
+  dataset: tus-rec-24-val
   num_workers: 1
   global_encoder_preprocessing_kw:  
     in_channels: 1
