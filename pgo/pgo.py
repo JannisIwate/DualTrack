@@ -42,21 +42,41 @@ def main():
     # init
     # --------------------------------------------------------
 
+    def cfg_has(path: str) -> bool:
+        return OmegaConf.select(config, path) is not None
+
+
+    def cfg_require(path: str):
+        value = OmegaConf.select(config, path)
+        if value is None:
+            raise ValueError(f"Missing required config entry: {path}")
+        return value
+    
+
+    def cfg_get(name:str):
+        return OmegaConf.select(config, name) if cfg_has(name) else None
+    
+
     # arguments
     args = parse_arguments()
     config = OmegaConf.load(args.config)
 
     OmegaConf.resolve(config)
 
-    if OmegaConf.select(config, "dirs.input_pred") is None:
-        raise ValueError("Missing required config entry: dirs.input_pred")
-    input_pred = config.dirs.input_pred
+    input_pred = cfg_require("dirs.input_pred")
+    # if OmegaConf.select(config, ) is None:
+    #     raise ValueError("Missing required config entry: dirs.input_pred")
+    # input_pred = config.dirs.input_pred
 
-    if OmegaConf.select(config, "general.pgo") is not None and \
-           OmegaConf.select(config, "general.pgo"):
+    execute_pgo = False
+
+    if cfg_has("general.options") and "pgo" in cfg_get("general.options"):
         execute_pgo = True
-    else:
-        execute_pgo = False
+    # if OmegaConf.select(config, "general.pgo") is not None and \
+    #        OmegaConf.select(config, "general.pgo"):
+    #     execute_pgo = True
+    # else:
+    #     execute_pgo = False
 
     # variables
     drift_metrics_original = []
@@ -73,14 +93,15 @@ def main():
     figs_individual = {}
     figs_general = {}
 
+    counter = 0
+
     # data
     data = os.listdir(input_pred)
-    nr_of_scans = OmegaConf.select(config, "general.nr_scans")
-    start = OmegaConf.select(config, "general.start_scan")
+    nr_of_scans = cfg_get("general.nr_scans")
+    start = cfg_get("general.start_scan")
     if start == None:
         start = 1
-    data = islice(data, start-1, start+nr_of_scans-1) if nr_of_scans is not None else data
-
+    data = islice(data, start-1, start+nr_of_scans-1) if nr_of_scans is not None else data       
 
     # --------------------------------------------------------
     # PGO
@@ -98,7 +119,7 @@ def main():
 
         with h5py.File(sweep_path, "r") as f:
 
-            nr_of_frames= OmegaConf.select(config, "general.nr_frames")
+            nr_of_frames= cfg_get("general.nr_frames")
             if nr_of_frames is None:
                 nr_of_frames = len(f["images"])
             else:
@@ -108,7 +129,7 @@ def main():
             pred_acc = np.array(f["pred_tracking_glob"][:nr_of_frames]) # starts with identity, normalized acc world coords
             pred_inbetween = np.array(f["pred_tracking_loc"][:nr_of_frames])
 
-            if OmegaConf.select(config, "dirs.input_gt") is not None:
+            if cfg_has("dirs.input_gt"):
                 gt_file = os.path.join(config.dirs.input_gt, f"{el}.h5")
 
                 with h5py.File(gt_file, "r") as f_gt:
@@ -127,6 +148,16 @@ def main():
             frames = np.array(f["images"][:nr_of_frames])
             dimensions = np.array(f["dimensions"])
 
+            # from PIL import Image
+            # for i in range(0, 30, 10):
+            #     np.save(f"frame_{i}", frames[i])
+            #     np.save(f"ref_transform_{i}", pred_inbetween[i+1])
+            #     np.save(f"gt_transform_{i}", gt_inbetween[i+1])
+
+            #     img = Image.fromarray(frames[i])
+            #     img.save(f"image_{i}.jpg")
+            # breakpoint()
+
         image_shape_hw = tuple(dimensions[:2])
         image_shape_hw = (image_shape_hw[1], image_shape_hw[0])
 
@@ -139,7 +170,7 @@ def main():
             )
 
             # LC constraints
-            if OmegaConf.select(config, "loop_closure") is not None:
+            if cfg_has("loop_closure"):
 
                 loop_closures = detect_loop_closures(
                     feature_vectors=fvs,
@@ -164,12 +195,12 @@ def main():
                     )
             
             # OF
-            if OmegaConf.select(config, "optical_flow") is not None:
+            if cfg_has("optical_flow"):
                 # Implement optical flow logic here
                 pass
 
         # IR (constraints or just IR)
-        if OmegaConf.select(config, "image_registration") is not None:
+        if cfg_has("image_registration"):
 
             ir_metrics_all = {
                 "metric": str,
@@ -187,9 +218,8 @@ def main():
             }
 
             # get transforms for non-adjacent frames (STEP > 1)
-            if "step" in config.image_registration:
-                STEP = config.image_registration.step
-            else:
+            STEP = cfg_get("image_registration.step")
+            if STEP == None:
                 STEP = 1
             idc1, idc2, ir_ref_transforms_inbetween, ir_gt_transforms_inbetween = sample_pairs_by_step(frames, pred_acc, gt_acc, STEP) # first element is identity
             nr_valid_irs = 0
@@ -224,23 +254,34 @@ def main():
                 ir_metrics_all["ir_execution_time"].append(ir_execution_time)
                 ir_transforms_inbetween[i+1] = transform_ir # skip first identity element
                 
-                if valid and execute_pgo:
-
-                    if OmegaConf.select(config, "general.ref_values_sigma") is None:
-                        raise ValueError("Missing required config entry: general.ref_values_sigma")
+                # if valid and execute_pgo:
+                if execute_pgo:
                     
-                    pred_graph.add_constraint(
-                        idc1[i],
-                        idc2[i],
-                        transform_ir,
-                        registration_noise_model(confidence=confidence, ref_sigma=config.general.ref_values_sigma)
-                    )
+                    ref_sigma = cfg_get("general.ref_values_sigma")
+                    if ref_sigma == None:
+                        ref_sigma = 1e-2
+
+                    stride = cfg_get("general.counter")
+                    if stride == None:
+                        stride = 1
+
+                    counter += 1
+                    
+                    if counter % stride == 0:
+                        pred_graph.add_constraint(
+                            idc1[i],
+                            idc2[i],
+                            transform_ir,
+                            registration_noise_model(confidence=confidence, ref_sigma=ref_sigma)
+                        )
                     nr_valid_irs = nr_valid_irs + 1
             
             # create plots
-            if OmegaConf.select(config, "plot") is not None:
+            plot_cfg = cfg_get("plot")
 
-                if OmegaConf.select(config, "plot.plot_ir_pose_differences") is not None:
+            if plot_cfg is not None:
+
+                if "plot_ir_pose_differences" in plot_cfg:
                     
                     figs_individual[f"{sweep_name}"] = {} # populate sweep key with sub dict first
                     figs_individual[f"{sweep_name}"]["ir_pose_diffs_ref_gt"] = plot_pose_differences(ir_ref_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs Pred") # gt is blue -> general direction is fine
@@ -248,7 +289,7 @@ def main():
                     figs_individual[f"{sweep_name}"]["ir_pose_diffs_ir_gt"] = plot_pose_differences(ir_transforms_inbetween, ir_gt_transforms_inbetween, title="GT vs IR") # -> general direction is fine but sometimes very big errors
                     plt.close()
 
-                if OmegaConf.select(config, "plot.plot_ir_trajectories") is not None:
+                if "plot_ir_trajectories" in plot_cfg:
 
                     figs_individual[f"{sweep_name}"]["ir_trajectories_gt_ref_ir"] = plot_trajectories([extract_positions(inbetween_to_accumulated(ir_gt_transforms_inbetween[1:])), # skip first identity element
                                                                                                         extract_positions(inbetween_to_accumulated(ir_ref_transforms_inbetween[1:])),
@@ -343,16 +384,18 @@ def main():
 
     # --------------------------------------------------------
     # process results
-    # --------------------------------------------------------
-    if OmegaConf.select(config, "plot") is not None and \
-       OmegaConf.select(config, "plot.plot_ir_error_magnitudes") is not None:
-            
+    # --------------------------------------------------------    
+    if cfg_has("image_registration") and \
+        cfg_has("plot") and \
+        "plot_ir_error_magnitudes" in cfg_get("plot"):
+
         figs_general["ir_error_mags_ref_gt"] = plot_motion_vs_error(
             np.concatenate(ir_transforms_all["ir_ref_transforms"], axis=0), # transform to np array and combine
             np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
             title="Ref vs GT"
         )
         plt.close()
+
         figs_general["ir_error_mags_ir_gt"] = plot_motion_vs_error(
             np.concatenate(ir_transforms_all["ir_transforms"], axis=0), # transform to np array and combine
             np.concatenate(ir_transforms_all["ir_gt_transforms"], axis=0),
@@ -360,7 +403,7 @@ def main():
         )
         plt.close()
 
-    if OmegaConf.select(config, "dirs.output_dir") is not None:
+    if cfg_has("dirs.output_dir"):
 
         save_results(
             output_dir=f"{config.dirs.output_dir}/results",

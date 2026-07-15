@@ -408,6 +408,12 @@ def run_full_test_loop(
 
     for batch in tqdm(iterator, desc="Evaluating", total=total):
 
+        for key, value in batch.items():
+            if isinstance(value, list):
+                print(f"{key}: {len(value)}")
+            elif isinstance(value, torch.Tensor):
+                print(f"{key}: {value.shape}")
+        breakpoint()
         # Filter by sweep IDs if specified
         if sweep_ids is not None:
             if not list(

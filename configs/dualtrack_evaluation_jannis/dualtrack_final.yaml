@@ -1,6 +1,6 @@
 model: 
   name: dualtrack_tus_rec_2024
-  local_encoder_cfg:
+  local_encoder_cfg: # to make DT24 work with 25 data
     name: dualtrack_loc_enc_stg3_legacy
 
 data: 

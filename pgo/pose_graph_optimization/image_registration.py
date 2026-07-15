@@ -59,11 +59,11 @@ def register(
 
         T_dl_backwards = np.linalg.inv(ref_transform)
         (
-            T_reg_forward,
-            metric_before_forward,
+            _,
+            metric_before_backward,
             _,
             _,
-            metric_after_forward,
+            metric_after_backward,
         ) = itk_register(
             frame_i=frame_j,
             frame_j=frame_i,
@@ -73,8 +73,8 @@ def register(
         )
 
         # check validity
-        metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
-        valid = (metric_change_forward <= max_metric_change)
+        metric_change_backward = (abs(metric_after_backward- metric_before_backward) / (abs(metric_before_backward) + eps)) * 100.0
+        valid = (metric_change_backward <= max_metric_change)
 
 
     # --------------------------------------------------------
@@ -101,9 +101,10 @@ def itk_register(
     gt_transform: np.ndarray,
     metric: str = "mi",
     optimizer:str = "gradient",
-    multi_resolution = False,
-    use_center = False,
-    patch_mask = False
+    options: str = "",
+    # multi_resolution = False,
+    # use_center = False,
+    # patch_mask = False
 ) -> tuple[
     np.ndarray,
     float,
@@ -125,7 +126,7 @@ def itk_register(
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
     # use center part of image which is not as affected as rim by pitch and roll
-    if use_center: # -> Verbesserung von 233% fuer FDR, 240% fuer GPE, 260% fuer Ausfuehrungszeit)
+    if "use_center" in options: # -> Verbesserung von 233% fuer FDR, 240% fuer GPE, 260% fuer Ausfuehrungszeit)
 
         # image_plot(fixed, title="fixed before")
         # image_plot(moving, title="moving before")
@@ -176,7 +177,7 @@ def itk_register(
     registration.SetMetricMovingMask(mask)
 
     # extend mask to parts of image which differ to much (spawning feature)
-    if patch_mask: # -> Verbesserung im Vergleich zu nur Centering von 5% FDR, keine signifikante Verbesserung von GPE, 1.5% fuer Ausfuehrungszeit
+    if "patch_mask" in options: # -> Verbesserung im Vergleich zu nur Centering von 5% FDR, keine signifikante Verbesserung von GPE, 1.5% fuer Ausfuehrungszeit
 
         mask = get_mask_from_patches(mask, fixed, moving, ref_transform, 4, 0.7) # 4 and 0.7 turn out to be ideal
 
@@ -215,7 +216,7 @@ def itk_register(
         )
 
     # multi-resolution (perform registration at different resolutions) -> keine signifikante Verbesserung von FDR oder GPE, -25% fuer Ausfuehrungszeit
-    if multi_resolution:
+    if "multi_resolution" in options:
         registration.SetShrinkFactorsPerLevel([4, 2, 1])
         registration.SetSmoothingSigmasPerLevel([2, 1, 0])
         registration.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
@@ -291,8 +292,8 @@ def itk_register(
     # breakpoint()
 
     return (
-        #transform_reg_inv, # Was jetzt?
-        sitk_to_3dof(transform_reg),
+        transform_reg_inv, # Was jetzt? -> cross check hat nochmal invertiert
+        #sitk_to_3dof(transform_reg),
         float(metric_before_identity),
         float(metric_before_gt),
         float(metric_before_pred),
