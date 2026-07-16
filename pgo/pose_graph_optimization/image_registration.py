@@ -122,13 +122,15 @@ def itk_register(
     ORIGIN_X = -73.28984642 # origin of pixel coord system is upper left corner, so negative values for center of image
     ORIGIN_Y = -52.92463589
 
-    fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 480x640 (x, y), other way round for sitk!
+    fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
     # use center part of image which is not as affected as rim by pitch and roll
     if "use_center" in options: # -> Verbesserung von 233% fuer FDR, 240% fuer GPE, 260% fuer Ausfuehrungszeit)
 
         # image_plot(fixed, title="fixed before")
+        # plt.show()
+        # breakpoint()
         # image_plot(moving, title="moving before")
 
         roi_size, roi_index = get_center_roi_params(fixed.GetSize(), 0.5)
@@ -143,16 +145,15 @@ def itk_register(
             size=roi_size,
             index=roi_index,
         )
-        # image_plot(fixed, title="fixed after")
-        # image_plot(moving, title="moving after")
-        # plt.show()
-        # breakpoint()
         
     fixed.SetSpacing((SPACING_X, SPACING_Y))
     moving.SetSpacing((SPACING_X, SPACING_Y))
 
     fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
     moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
+    # image_plot(fixed, title="fixed before")
+    # plt.show()
+    # breakpoint()
 
     ## registration
     registration = sitk.ImageRegistrationMethod()
@@ -182,15 +183,14 @@ def itk_register(
         mask = get_mask_from_patches(mask, fixed, moving, ref_transform, 4, 0.7) # 4 and 0.7 turn out to be ideal
 
     mask.CopyInformation(fixed)
-    # image_plot(mask, title="mask")
+    image_plot(mask, title="mask")
     # image_plot(fixed, title="fixed")
     # image_plot(moving, title="moving")
-    # plt.show()
-    # breakpoint()
+    plt.show()
+    breakpoint()
 
     registration.SetMetricFixedMask(mask)
     registration.SetMetricMovingMask(mask)
-
 
     # interpolator and optimizer
     registration.SetInterpolator(sitk.sitkLinear)

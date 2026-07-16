@@ -85,6 +85,7 @@ def plot_pose_differences_j(pred, gt, title=None, ax=None):
     mean_error_array = np.cumsum(errors_real, axis=0) / np.arange(1, len(errors_real) + 1)[:, None]
 
     print(np.abs(gt_tracking).mean(0))
+    print(errors_abs_mean)
 
     if ax is None: 
         fig, ax = plt.subplots(2, 3)
@@ -95,15 +96,18 @@ def plot_pose_differences_j(pred, gt, title=None, ax=None):
         ax_ = ax.flatten()[i]
         tags = ["x", "y", "z", "pitch", "roll", "yaw"]
 
-        ax_.plot(pred_tracking[:, i], label="pred", alpha=0.8, color="orange")
-        ax_.plot(gt_tracking[:, i], label="gt", alpha=0.8, color="blue")
-        #ax_.plot(errors_abs[:, i], label="abs error to pred", alpha=0.8, color="orange")
-        # ax_.plot(mean_error_array[:, i], label="error mean through time", alpha=0.8, color="orange")
-        ax_.set_title(f"mae={errors_abs_mean[i]:.2f}, {errors_real_mean[i]:.2f}")
+        # ax_.plot(pred_tracking[:, i], label="pred", alpha=0.8, color="orange")
+        # ax_.plot(np.abs(gt_tracking)[:, i], label="gt", alpha=0.8, color="blue")
+        # ax_.plot(gt_tracking[:, i], label="gt", alpha=0.8, color="blue")
+        # ax_.plot(errors_abs[:, i], label="error to pred", alpha=0.8, color="orange")
+        ax_.plot(mean_error_array[:, i], label="error mean through time", alpha=0.8, color="orange")
+        # ax_.set_title(f"mae={errors_abs_mean[i]:.2f}, {errors_real_mean[i]:.2f}")
 
         # -> Fehler sind im Prinzip mittelwertfrei
         # -> Groessere Fehler bei groesseren Werten
-        # -> Groesste Fehler bei y und roll, generell sind Winkelfehler viel groesser als T Fehler im Vergleich zu Werten
+        # -> Groesste Fehler bei y und roll (ergibt Sinn, da y Dimension kleiner ist als x Dimension -> weniger Info bei y, mehr Fehler bei x roll)
+        # -> Generell sind Winkelfehler viel groesser als T Fehler im Vergleich zu Werten (ergibt Sinn, da Translation recht eindeutig ist)
+        # TODO: Ueberlegen, wie man diese Erkenntnisse nutzt
         # TODO: Plotte das hier alles fuer PGO und IR Schaetzungen, vorher speichern
 
         if i <= 2:
@@ -114,6 +118,7 @@ def plot_pose_differences_j(pred, gt, title=None, ax=None):
 
         if i == 5:
             ax_.legend()
+    title="GT vs Pred"
     fig.canvas.manager.set_window_title(title)
     fig.tight_layout()
     
