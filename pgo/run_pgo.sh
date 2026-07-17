@@ -10,7 +10,7 @@ cd "$WORKDIR" || exit 1
 ## DualTrack 25
 
 ## DualTrack 24
-python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test/config.yaml
+python pgo.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments/test_error/config.yaml
 
 
 

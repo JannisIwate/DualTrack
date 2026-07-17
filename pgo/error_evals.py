@@ -70,7 +70,7 @@ def main():
                 gt_inbetween_all = np.concatenate((gt_inbetween_all, gt_inbetween), axis=0)
         
     plot_pose_differences_j(pred_inbetween_all, gt_inbetween_all, title="Error vs GT")
-    plt.show()
+    # plt.show()
 
 
 def plot_pose_differences_j(pred, gt, title=None, ax=None):
@@ -79,13 +79,48 @@ def plot_pose_differences_j(pred, gt, title=None, ax=None):
     gt_tracking = np.stack([matrix_to_pose_vector(matrix) for matrix in gt])
 
     errors_abs = np.abs(pred_tracking - gt_tracking)
-    errors_real = (pred_tracking - gt_tracking)
+    errors_real = (pred_tracking - gt_tracking) # errors are in mm and degrees
     errors_abs_mean = errors_abs.mean(0)
     errors_real_mean = errors_real.mean(0)
     mean_error_array = np.cumsum(errors_real, axis=0) / np.arange(1, len(errors_real) + 1)[:, None]
 
-    print(np.abs(gt_tracking).mean(0))
-    print(errors_abs_mean)
+    # print(np.abs(gt_tracking).mean(0))
+    # print(errors_abs_mean)
+
+    for i in range(errors_real.shape[1]):
+        # plt.figure()
+        # plt.hist(errors_real[:, i], bins=60)
+        # plt.title(f"Column {i}")
+        # plt.xlabel("Value")
+        # plt.ylabel("Count")
+
+
+        lower = np.percentile(errors_real[:, i], 0)
+        upper = np.percentile(errors_real[:, i], 100)
+
+        errors_real_filtered = errors_real[:, i][(errors_real[:, i] >= lower) & (errors_real[:, i] <= upper)]
+
+        import scipy.stats as stats
+        import matplotlib.pyplot as plt
+        stats.probplot(errors_real_filtered, dist="norm", plot=plt)
+        # sortiere Punkte, weise jedem Punkt ein Quantil zu, berechne Idealverteilung anhand von Standardabweichung und Mittelwert, plotte Idealquantile und tatsaechliche Werte
+
+        std_population = np.std(errors_real[:, i])
+        print(std_population)
+        std_gt = np.std(gt_tracking[:, i])
+        print(std_gt)
+        print("\n")
+        # -> standard deviation for errors
+        # x: 0.07656708383374906
+        # y: 0.02681774961755883
+        # z: 0.09021679400248785
+        # pitch: 0.04206508373865844
+        # yaw: 0.033058318883716194
+        # roll: 0.03825069374999717
+
+    # -> errors are basically gaussian (only really small and really big errors are off)
+
+    # plt.show()
 
     if ax is None: 
         fig, ax = plt.subplots(2, 3)
@@ -100,7 +135,7 @@ def plot_pose_differences_j(pred, gt, title=None, ax=None):
         # ax_.plot(np.abs(gt_tracking)[:, i], label="gt", alpha=0.8, color="blue")
         # ax_.plot(gt_tracking[:, i], label="gt", alpha=0.8, color="blue")
         # ax_.plot(errors_abs[:, i], label="error to pred", alpha=0.8, color="orange")
-        ax_.plot(mean_error_array[:, i], label="error mean through time", alpha=0.8, color="orange")
+        #ax_.plot(mean_error_array[:, i], label="error mean through time", alpha=0.8, color="orange")
         # ax_.set_title(f"mae={errors_abs_mean[i]:.2f}, {errors_real_mean[i]:.2f}")
 
         # -> Fehler sind im Prinzip mittelwertfrei

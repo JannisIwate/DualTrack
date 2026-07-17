@@ -9,6 +9,7 @@ from omegaconf import OmegaConf
 from itertools import islice
 from matplotlib import pyplot as plt
 import time
+from scipy.stats import norm
 
 sys.path.append(os.getcwd())
 sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
@@ -19,7 +20,7 @@ from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
 from pose_graph_optimization.image_registration import sample_pairs_by_step, register
-from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings, plot_pose_differences
+from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings, plot_pose_differences, pose_vector_to_matrix, matrix_to_pose_vector
 from src.evaluator import plot_pose_differences
 
 
@@ -69,9 +70,12 @@ def main():
     # input_pred = config.dirs.input_pred
 
     execute_pgo = False
+    error_adjustment = False
 
     if cfg_has("general.options") and "pgo" in cfg_get("general.options"):
         execute_pgo = True
+    if cfg_has("general.options") and "error_adjustment" in cfg_get("general.options"):
+        error_adjustment = True
     # if OmegaConf.select(config, "general.pgo") is not None and \
     #        OmegaConf.select(config, "general.pgo"):
     #     execute_pgo = True
@@ -328,6 +332,35 @@ def main():
                 mode="5pt-landmark",
             )
             ddf_metrics_after_ir.append(ddf_metrics_ir)
+
+        if noise_constraints:
+
+            mean = 0.0
+            std = np.array([ # empirical values
+                0.07656708383374906,
+                0.02681774961755883,
+                0.09021679400248785,
+                0.04206508373865844,
+                0.033058318883716194,
+                0.03825069374999717,
+            ])
+
+            lower = norm.ppf(0.05, loc=mean, scale=std)
+            upper = norm.ppf(0.95, loc=mean, scale=std)
+
+            for i in range(1, pred_inbetween.shape[0] - 1, 1): # shape (X, 4, 4)
+
+                noise_vector = np.random.normal(mean, std)
+                noise_vector = np.clip(noise_vector, lower, upper)
+                pred_inbetween_vector = matrix_to_pose_vector(pred_inbetween[i])
+                vector = pred_inbetween_vector + noise_vector
+                transform = pose_vector_to_matrix(vector)
+
+                pred_graph.add_constraint(
+                            node_i=i,
+                            node_j=i + 1,
+                            transform=transform
+                        )
             
         ## optimize graph
         pred_graph_gtsam = None

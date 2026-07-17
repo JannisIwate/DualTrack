@@ -64,8 +64,12 @@ class PoseGraph:
         node_i,
         node_j,
         transform: np.ndarray,
-        noise_sigma=1e-2,
+        noise_sigma:gtsam.gtsam.noiseModel.Base = None,
     ):
+        # default values
+        if noise_sigma is None:
+            noise_sigma = gtsam.noiseModel.Diagonal.Sigmas(np.array([1e-2] * 6))
+
         self.additional_constraints.append(
             {
                 "i": node_i,
