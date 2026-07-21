@@ -70,12 +70,12 @@ def main():
     # input_pred = config.dirs.input_pred
 
     execute_pgo = False
-    error_adjustment = False
+    noise_constraints = False
 
     if cfg_has("general.options") and "pgo" in cfg_get("general.options"):
         execute_pgo = True
-    if cfg_has("general.options") and "error_adjustment" in cfg_get("general.options"):
-        error_adjustment = True
+    if cfg_has("general.options") and "noise_constraints" in cfg_get("general.options"):
+        noise_constraints = True
     # if OmegaConf.select(config, "general.pgo") is not None and \
     #        OmegaConf.select(config, "general.pgo"):
     #     execute_pgo = True
@@ -333,10 +333,11 @@ def main():
             )
             ddf_metrics_after_ir.append(ddf_metrics_ir)
 
+        # noise contraints
         if noise_constraints:
 
-            mean = 0.0
-            std = np.array([ # empirical values
+            mean = 0.0 # empirical values
+            STD = np.array([
                 0.07656708383374906,
                 0.02681774961755883,
                 0.09021679400248785,
@@ -344,17 +345,39 @@ def main():
                 0.033058318883716194,
                 0.03825069374999717,
             ])
+            SLOPE = np.array([
+                -0.084166,
+                -0.343315,
+                -0.155954,
+                -0.765020,
+                -0.671620,
+                -0.612082,
+            ])
+            INTERCEPT = np.array([                -0.002105,
+                -0.000186,
+                0.000503,
+                0.001229,
+                -0.002765,
+                0.001885,
+            ])
 
-            lower = norm.ppf(0.05, loc=mean, scale=std)
-            upper = norm.ppf(0.95, loc=mean, scale=std)
+            lower = norm.ppf(0.05, loc=mean, scale=STD) # filter really small and really big values 
+            upper = norm.ppf(0.95, loc=mean, scale=STD)
 
             for i in range(1, pred_inbetween.shape[0] - 1, 1): # shape (X, 4, 4)
 
-                noise_vector = np.random.normal(mean, std)
-                noise_vector = np.clip(noise_vector, lower, upper)
+                # noise_vector = np.random.normal(mean, STD)
+                # noise_vector = np.clip(noise_vector, lower, upper)
                 pred_inbetween_vector = matrix_to_pose_vector(pred_inbetween[i])
-                vector = pred_inbetween_vector + noise_vector
-                transform = pose_vector_to_matrix(vector)
+                # vector = pred_inbetween_vector + noise_vector
+
+                # pred_vector_corrected = 0.3*(pred_inbetween_vector - INTERCEPT) / (1.0 + SLOPE)
+                alpha = 1.0
+
+                expected_error = SLOPE * pred_inbetween_vector + INTERCEPT
+                pred_vector_corrected = pred_inbetween_vector - alpha * expected_error
+
+                transform = pose_vector_to_matrix(pred_vector_corrected)
 
                 pred_graph.add_constraint(
                             node_i=i,
