@@ -167,10 +167,12 @@ def main():
 
         ## build graph
         if execute_pgo:
+            #odom_noise = get_noise(pred_inbetween[1:])
             pred_graph = PoseGraph(
                 poses=pred_acc,
                 constraints=pred_inbetween,
-                initial_pose=pred_acc[0]
+                initial_pose=pred_acc[0],
+                #odom_noise_sigma=odom_noise
             )
 
             # LC constraints
@@ -353,7 +355,8 @@ def main():
                 -0.671620,
                 -0.612082,
             ])
-            INTERCEPT = np.array([                -0.002105,
+            INTERCEPT = np.array([                
+                -0.002105,
                 -0.000186,
                 0.000503,
                 0.001229,
@@ -366,16 +369,14 @@ def main():
 
             for i in range(1, pred_inbetween.shape[0] - 1, 1): # shape (X, 4, 4)
 
-                # noise_vector = np.random.normal(mean, STD)
+                noise_vector = np.random.normal(mean, STD)
+                
                 # noise_vector = np.clip(noise_vector, lower, upper)
                 pred_inbetween_vector = matrix_to_pose_vector(pred_inbetween[i])
-                # vector = pred_inbetween_vector + noise_vector
-
-                # pred_vector_corrected = 0.3*(pred_inbetween_vector - INTERCEPT) / (1.0 + SLOPE)
-                alpha = 1.0
-
-                expected_error = SLOPE * pred_inbetween_vector + INTERCEPT
-                pred_vector_corrected = pred_inbetween_vector - alpha * expected_error
+                
+                # pred_vector_corrected = 1.0*(pred_inbetween_vector - INTERCEPT) / (1.0 + SLOPE) + noise_vector
+                #pred_vector_corrected = pred_inbetween_vector + noise_vector
+                pred_vector_corrected = pred_inbetween_vector * 1.0
 
                 transform = pose_vector_to_matrix(pred_vector_corrected)
 
@@ -639,6 +640,38 @@ def extract_positions(values:np.ndarray) -> tuple[np.ndarray, np.ndarray, np.nda
         zs.append(el[2, 3])
 
     return np.array(xs), np.array(ys), np.array(zs)
+
+
+def get_noise(pred_inbetween):
+
+    pred_vector = np.stack([matrix_to_pose_vector(i) for i in pred_inbetween])  # (N, 6)
+
+    last_gt_bin_ranges = np.array([
+        [0.4370, 1.4032],
+        [0.0721, 0.2460],
+        [0.3952, 1.2951],
+        [0.0718, 0.6201],
+        [0.0634, 0.2451],
+        [0.0769, 0.5950],
+    ])  # (6, 2)
+
+    noise = np.full_like(pred_vector, 1e-2, dtype=float)
+
+    indices = []
+
+    for dof in range(6):
+
+        lower, upper = last_gt_bin_ranges[dof]
+
+        mask = (
+            (np.abs(pred_vector[:, dof]) >= lower) &
+            (np.abs(pred_vector[:, dof]) <= upper)
+        )
+        indices.append(np.where(mask)[0])
+
+        noise[mask, dof] = 1e-1
+
+    return noise
 
 
 if __name__ == "__main__":

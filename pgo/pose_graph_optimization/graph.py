@@ -106,7 +106,7 @@ class PoseGraph:
             )
         )
 
-        ## add constraints
+        # add constraints
         if np.isscalar(self.odom_noise_sigma):
 
             edge_noises = [self.odom_noise_sigma] * (self.N - 1)
