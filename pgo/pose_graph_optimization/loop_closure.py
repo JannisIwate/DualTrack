@@ -3,7 +3,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics.pairwise import cosine_similarity
 import networkx as nx
 
-from .image_registration import register
+from .image_registration import register_2d
 
 
 def detect_loop_closures(
@@ -45,7 +45,7 @@ def detect_loop_closures(
                     continue
                 #print(f"lc score: {score}")
 
-                transform, reg_score, rating = register(
+                transform, reg_score, rating = register_2d(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     ref_transform=transforms,
@@ -92,7 +92,7 @@ def detect_loop_closures(
                 if score < threshold:
                     continue
 
-                transform, reg_score, rating = register(
+                transform, reg_score, rating = register_2d(
                     frame_i=frames[i],
                     frame_j=frames[j],
                     ref_transform=transforms[i:j-1],

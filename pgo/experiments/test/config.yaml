@@ -5,25 +5,35 @@ dirs:
 
 general:
   options:
-    - pgo
-    - noise_constraints
+    # - pgo
+    # - noise_constraints
   # ref_values_sigma: 1e-1
   nr_scans: 1
-  # nr_frames: 4
+  nr_frames: 4
   # start_scan: 1 # counting from 1
 
-# image_registration:
-#   # step: 1
-#   # max_metric_change: 20 # in %
+image_registration:
+  ir_type: "2d"
+  # step: 1
+  # max_metric_change: 20 # in %
+  sitk:
+    metric: "mi"
+    optimizer: "gradient"
+    options:
+      # - cross_check
+      # - multi_resolution
+      - use_center
+      - patch_mask
+
+# image_registration_3d:
 #   sitk:
 #     metric: "mi"
 #     optimizer: "gradient"
 #     options:
 #       # - cross_check
 #       # - multi_resolution
-#       - use_center
-#       - patch_mask
+
 plot:
-  # - plot_ir_error_magnitudes
-#   - plot_ir_pose_differences
-#   - plot_ir_trajectories
+  - plot_ir_error_magnitudes
+  - plot_ir_pose_differences
+  - plot_ir_trajectories

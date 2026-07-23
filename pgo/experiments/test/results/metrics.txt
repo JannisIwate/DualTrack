@@ -1,28 +1,35 @@
 initial:
 
-  final_drift_rate: 2.7981535548212144
-  avg_drift_rate: 5.846894611870576
-  max_drift: 3.845526838868195
-  sum_of_drift: 1017.792897275238
+  final_drift_rate: 26.832354723909535
+  avg_drift_rate: 29.328391295835207
+  max_drift: 0.2013797393609987
+  sum_of_drift: 0.5792970101108526
 
-  avg_global_displacement_error: 4.543859004974365
-  max_global_displacement_error: 6.24337100982666
-  avg_local_displacement_error: 0.1398506760597229
-  max_local_displacement_error: 0.4978916049003601
-  tusrec_final_score: 0.49566242463976806
-  relative_global_err_pct: 0.10091184824705124
+  avg_global_displacement_error: 0.17918236553668976
+  max_global_displacement_error: 0.2458769530057907
+  avg_local_displacement_error: 0.12074235826730728
+  max_local_displacement_error: 0.20205970108509064
+  tusrec_final_score: 0.33684702414645284
+  relative_global_err_pct: 0.4476530849933624
 
-after pgo:
+image registration:
 
-  final_drift_rate: 2.823165015699812
-  avg_drift_rate: 5.629932285883592
-  max_drift: 3.879900307730269
-  sum_of_drift: 1045.9568386387436
+  metric: mi
+  metric_before: -1.1018725285212536
+  metric_before_gt: -1.0457995417860164
+  metric_before_pred: -1.0148166744225164
+  metric_after: -1.1712781439301516
+  ir_execution_time: 0.09774430592854817
 
-  avg_global_displacement_error: 4.565831661224365
-  max_global_displacement_error: 6.236007213592529
-  avg_local_displacement_error: 0.14216043055057526
-  max_local_displacement_error: 0.4935705065727234
-  tusrec_final_score: 0.4899015740689756
-  relative_global_err_pct: 0.09959748387336731
+  final_drift_rate: 12.23748083665339
+  avg_drift_rate: 30.674950538201763
+  max_drift: 0.1705460975451007
+  sum_of_drift: 0.34959534932822744
+
+  avg_global_displacement_error: 0.2277822047472
+  max_global_displacement_error: 0.2950536906719208
+  avg_local_displacement_error: 0.21712739765644073
+  max_local_displacement_error: 0.27580755949020386
+  tusrec_final_score: 0.22037753308431568
+  relative_global_err_pct: 0.7421706318855286
 
