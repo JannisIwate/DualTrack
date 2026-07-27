@@ -20,6 +20,7 @@ from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
 from pose_graph_optimization.image_registration import register_2d, register_3d, sample_pairs_by_step, sample_sliding_windows
+from error_evals import estimate_gt
 from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings, plot_pose_differences, pose_vector_to_matrix, matrix_to_pose_vector
 from src.evaluator import plot_pose_differences
 
@@ -277,8 +278,9 @@ def init_pose_graph(pred_acc: np.ndarray, pred_inbetween: np.ndarray, flags: dic
     if flags["la_replace"]:
 
         pred_inbetween = linear_approximation(pred_inbetween, 0.9, 0.8)
+        # pred_inbetween = estimate_gt(pred_inbetween)
         pred_acc = inbetween_to_accumulated(pred_inbetween[1:])
-        # -> doesn't help :(
+        # -> doesn't help as worsening outweighs improvement
 
     pred_graph = PoseGraph(poses=pred_acc, constraints=pred_inbetween, initial_pose=pred_acc[0])
 
@@ -335,21 +337,70 @@ def get_noise(pred_inbetween):
     return noise
 
 
-def linear_approximation(pred_inbetween, quantile=0.9, scale=0.8):
+def linear_approximation(
+    pred_inbetween,
+    quantile=0.9,
+    scale=0.8,
+    max_factor=10.0,
+):
 
-    SLOPE = np.array([-0.084166, -0.343315, -0.155954, -0.765020, -0.671620, -0.612082])
-    INTERCEPT = np.array([-0.002105, -0.000186, 0.000503, 0.001229, -0.002765, 0.001885])
+    SLOPE = np.array([
+        -0.084166,
+        -0.343315,
+        -0.155954,
+        -0.765020,
+        -0.671620,
+        -0.612082,
+    ])
+
+    INTERCEPT = np.array([
+        -0.002105,
+        -0.000186,
+         0.000503,
+         0.001229,
+        -0.002765,
+         0.001885,
+    ])
 
     # LA correction for large values, as these benefit the most from it
-    pred_inbetween_vector = np.stack([matrix_to_pose_vector(T) for T in pred_inbetween])
+    pred_inbetween_vector = np.stack(
+        [matrix_to_pose_vector(T) for T in pred_inbetween]
+    )
 
     for dof in range(pred_inbetween_vector.shape[1]):
 
-        lower = np.quantile(np.abs(pred_inbetween_vector[:, dof]), quantile)
-        mask = np.abs(pred_inbetween_vector[:, dof]) >= lower
-        pred_inbetween_vector[mask, dof] = scale * (pred_inbetween_vector[mask, dof] - INTERCEPT[dof]) / (1.0 + SLOPE[dof])
+        # only last quantile
+        lower = np.quantile(
+            np.abs(pred_inbetween_vector[:, dof]),
+            quantile,
+        )
 
-    return np.stack([pose_vector_to_matrix(i) for i in pred_inbetween_vector])
+        mask = np.abs(pred_inbetween_vector[:, dof]) >= lower
+
+        pred = pred_inbetween_vector[mask, dof]
+
+        # la
+        la = (
+            scale *
+            (pred - INTERCEPT[dof]) /
+            (1.0 + SLOPE[dof])
+        )
+
+        # only keep reasonable corrections (doesn't help)
+        ratio = np.abs(la) / np.maximum(np.abs(pred), 1e-8)
+        valid = ratio <= max_factor
+
+        pred_inbetween_vector[mask, dof] = np.where(
+            valid,
+            la,
+            pred,
+        )
+
+        break  # only x
+
+    return np.stack(
+        [pose_vector_to_matrix(v) for v in pred_inbetween_vector]
+    )
 
 
 # ==========================================================================
@@ -392,12 +443,64 @@ def register_frame_pairs(idc1, idc2, frames_1, frames_2, ir_ref, ir_gt, config, 
     return ir_metrics, ir_transforms, counter, confidences
 
 
-def register_volumes():
+def register_volumes(
+    windows,
+    first_window_start,
+    pred_acc,
+    pred_inbetween,
+    config,
+    counter,
+):
+    ir_metrics = {
+        "metric": config.image_registration.sitk.metric,
+        "metric_before": [],
+        "metric_before_gt": [],
+        "metric_before_pred": [],
+        "metric_after": [],
+        "ir_execution_time": [],
+    }
 
-    register_3d()
+    # Reference transforms are used by default.
+    # Only frames that become the centre of a window are overwritten.
+    ir_transforms = np.copy(pred_inbetween)
 
-    # TODO
-    pass
+    window_size = windows.shape[1]
+
+    half_window = window_size // 2
+
+    first_registered = first_window_start + half_window
+
+    for i, window in enumerate(windows):
+
+        start_time = time.time()
+        ref_idx_start = first_window_start + i
+        ref_idx_end = ref_idx_start + window_size
+
+        (
+            ir_transform,
+            m_before_id,
+            m_before_gt,
+            m_before_pred,
+            m_after,
+        ) = register_3d(
+            window,
+            pred_acc[ref_idx_start:ref_idx_end],
+            config.image_registration.sitk,
+        )
+
+        # TODO: think about assigning found transform to pred_acc or keeping ref transforms as ref for found pose
+
+        ir_metrics["metric_before"].append(m_before_id)
+        ir_metrics["metric_before_gt"].append(m_before_gt)
+        ir_metrics["metric_before_pred"].append(m_before_pred)
+        ir_metrics["metric_after"].append(m_after)
+        ir_metrics["ir_execution_time"].append(time.time() - start_time)
+
+        centre_idx = first_registered + i
+
+        ir_transforms[centre_idx] = ir_transform
+
+    return ir_metrics, ir_transforms, counter
 
 
 def create_ir_scan_plots(sweep_name, ir_ref, ir_gt, ir_transforms, config, figs_individual):
@@ -456,9 +559,13 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
                                             counter=counter)
     elif ir_type == "3d":
 
-        sample_sliding_windows()
+        WINDOW_SIZE = cfg_get("image_registration.window_size")
+        if WINDOW_SIZE is None:
+            WINDOW_SIZE = 10
+        pred_inbetween = inbetween_to_accumulated(pred_acc[1:]) # skip first identity)
+        windows, start = sample_sliding_windows(pred_inbetween, WINDOW_SIZE) # shape (438, 10, 4, 4)
 
-        register_volumes()
+        register_volumes(windows, start, pred_acc, pred_inbetween, config, counter=counter)
 
     else:
 
@@ -498,6 +605,45 @@ def create_ir_general_plots(results: dict, config):
     plt.close()
     ir["figs_general"]["ir_error_mags_ir_gt"] = plot_motion_vs_error(est, gt, title="IR vs GT")
     plt.close()
+
+
+def sample_sliding_windows(
+    data: np.ndarray,
+    window_size: int = 11,
+    stride: int = 1,
+) -> tuple[np.ndarray, int]:
+
+    n = len(data)
+
+    if window_size <= 0:
+
+        raise ValueError("window_size must be > 0.")
+
+    if stride <= 0:
+
+        raise ValueError("stride must be > 0.")
+
+    if n < window_size:
+
+        raise ValueError("window_size must not exceed the number of samples.")
+
+    if window_size % 2 == 0:
+            
+            raise ValueError("Slice-to-volume registration requires an odd window size.")
+
+    windows = []
+
+    # Start index of the last complete window
+    last_start = n - window_size
+
+    # Sample from back to front
+    starts = list(range(last_start, -1, -stride))
+    starts.reverse()
+
+    for start in starts:
+        windows.append(data[start:start + window_size])
+
+    return np.stack(windows), starts[0]
 
 
 # ==========================================================================

@@ -5,7 +5,7 @@ from pose_graph_optimization.utils import accumulate
 from pose_graph_optimization.utils import pose3_to_se2
 from scipy.spatial.transform import Rotation
 from src.submission.tus_rec_challenge_baseline import transform
-from pose_graph_optimization.sitk import sitk_2d_register
+from pose_graph_optimization.sitk import sitk_2d_register, sitk_3d_register
 
 
 def register_2d(
@@ -96,11 +96,36 @@ def register_2d(
     ]
 
 
-def register_3d():
+def register_3d(window, pred_acc, sitk_cfg):
 
-    # TODO
-    pass
+    window_size = len(window)
+    center = window_size // 2
 
+    volume_frames = np.delete(window, center, axis=0)
+    volume_poses = np.delete(pred_acc, center, axis=0)
+
+    slice_frame = window[center]
+
+    (
+        T_reg,
+        metric_before_forward,
+        metric_before_gt_forward,
+        metric_before_pred_forward,
+        metric_after_forward,
+    ) = sitk_3d_register(
+        volume_frames=volume_frames,
+        volume_poses=volume_poses,
+        slice_frame=slice_frame,
+        **sitk_cfg,
+    )
+
+    return (
+        T_reg,
+        metric_before_forward,
+        metric_before_gt_forward,
+        metric_before_pred_forward,
+        metric_after_forward,
+    )
 
 def fuse_3dof_with_6dof(T_ref: np.ndarray, T_reg_se2: np.ndarray) -> np.ndarray:
 

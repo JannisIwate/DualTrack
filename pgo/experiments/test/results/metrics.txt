@@ -1,35 +1,28 @@
 initial:
 
-  final_drift_rate: 26.832354723909535
-  avg_drift_rate: 29.328391295835207
-  max_drift: 0.2013797393609987
-  sum_of_drift: 0.5792970101108526
+  final_drift_rate: 5.5440275272729265
+  avg_drift_rate: 6.549138535182255
+  max_drift: 8.950098080031957
+  sum_of_drift: 2143.6314900058264
 
-  avg_global_displacement_error: 0.17918236553668976
-  max_global_displacement_error: 0.2458769530057907
-  avg_local_displacement_error: 0.12074235826730728
-  max_local_displacement_error: 0.20205970108509064
-  tusrec_final_score: 0.33684702414645284
-  relative_global_err_pct: 0.4476530849933624
+  avg_global_displacement_error: 5.312451786465115
+  max_global_displacement_error: 9.943784558110767
+  avg_local_displacement_error: 0.12312686670985487
+  max_local_displacement_error: 0.5030657106803523
+  tusrec_final_score: 0.592637520994654
+  relative_global_err_pct: 0.0817962324557205
 
-image registration:
+after pgo:
 
-  metric: mi
-  metric_before: -1.1018725285212536
-  metric_before_gt: -1.0457995417860164
-  metric_before_pred: -1.0148166744225164
-  metric_after: -1.1712781439301516
-  ir_execution_time: 0.09774430592854817
+  final_drift_rate: 5.588728150034639
+  avg_drift_rate: 7.041884766286033
+  max_drift: 9.053140124933451
+  sum_of_drift: 2219.3085632625316
 
-  final_drift_rate: 12.23748083665339
-  avg_drift_rate: 30.674950538201763
-  max_drift: 0.1705460975451007
-  sum_of_drift: 0.34959534932822744
-
-  avg_global_displacement_error: 0.2277822047472
-  max_global_displacement_error: 0.2950536906719208
-  avg_local_displacement_error: 0.21712739765644073
-  max_local_displacement_error: 0.27580755949020386
-  tusrec_final_score: 0.22037753308431568
-  relative_global_err_pct: 0.7421706318855286
+  avg_global_displacement_error: 5.444234414233102
+  max_global_displacement_error: 10.0359243022071
+  avg_local_displacement_error: 0.12396621973150307
+  max_local_displacement_error: 0.5046248642934693
+  tusrec_final_score: 0.588286008039919
+  relative_global_err_pct: 0.08540685604222947
 

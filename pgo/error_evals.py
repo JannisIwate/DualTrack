@@ -185,8 +185,10 @@ def plot_bias(stats):
 
     for i in range(6):
 
-        x = abs(gt_tracking)[:, i]
-        y = abs(errors_real)[:, i]
+        # x = abs(gt_tracking)[:, i]
+        # y = abs(errors_real)[:, i]
+        x = gt_tracking[:, i]
+        y = errors_real[:, i]
         
         result = linregress(x, y)
 
@@ -300,31 +302,27 @@ def variance_statistics(stats, num_bins=10):
             )
     
 
-def linear_regression_approximation(pred_all, gt_all, gt_est, num_quantiles=10):
+def la_improvement_stats(pred_all, gt_all, gt_est, num_quantiles=10):
 
-    old_error = np.abs(
-        np.stack([matrix_to_pose_vector(T) for T in pred_all]) -
-        np.stack([matrix_to_pose_vector(T) for T in gt_all])
-    )
+    pred = np.stack([matrix_to_pose_vector(T) for T in pred_all])
+    gt = np.stack([matrix_to_pose_vector(T) for T in gt_all])
+    est = np.stack([matrix_to_pose_vector(T) for T in gt_est])
 
-    new_error = np.abs(
-        np.stack([matrix_to_pose_vector(T) for T in gt_est]) -
-        np.stack([matrix_to_pose_vector(T) for T in gt_all])
-    )
+    old_error = np.abs(pred - gt)
+    new_error = np.abs(est - gt)
+    gt_abs = np.abs(gt)
+    pred_abs = np.abs(pred)
 
-    gt_vector = np.abs(
-        np.stack([matrix_to_pose_vector(T) for T in gt_all])
-    )
+    labels = ["Tx", "Ty", "Tz", "Rx", "Ry", "Rz"]
 
     for dof in range(6):
 
-        print(f"\nDOF {dof}")
+        print(f"\n{labels[dof]}")
 
         edges = np.quantile(
-            gt_vector[:, dof],
+            gt_abs[:, dof],
             np.linspace(0, 1, num_quantiles + 1)
         )
-
         edges = np.unique(edges)
 
         for q in range(len(edges) - 1):
@@ -333,22 +331,79 @@ def linear_regression_approximation(pred_all, gt_all, gt_est, num_quantiles=10):
             upper = edges[q + 1]
 
             if q == len(edges) - 2:
-                mask = (gt_vector[:, dof] >= lower) & (gt_vector[:, dof] <= upper)
+                mask = (
+                    (gt_abs[:, dof] >= lower) &
+                    (gt_abs[:, dof] <= upper)
+                )
             else:
-                mask = (gt_vector[:, dof] >= lower) & (gt_vector[:, dof] < upper)
+                mask = (
+                    (gt_abs[:, dof] >= lower) &
+                    (gt_abs[:, dof] < upper)
+                )
 
             if not np.any(mask):
                 continue
 
-            improved = new_error[mask, dof] < old_error[mask, dof]
+            old = old_error[mask, dof]
+            new = new_error[mask, dof]
+            gt_mag = gt_abs[mask, dof]
+            pred_mag = pred_abs[mask, dof]
+
+            improved = new < old
+            worsened = new > old
+
+            percentage = 100.0 * improved.mean()
+
+            if np.any(improved):
+                improvement_rate = (
+                    (old[improved] - new[improved]) /
+                    np.maximum(old[improved], 1e-12)
+                ).mean() * 100.0
+
+                improved_gt_error = (
+                    new[improved] /
+                    np.maximum(gt_mag[improved], 1e-12)
+                ).mean() * 100.0
+
+                improved_pred_error = (
+                                    new[improved] /
+                                    np.maximum(pred_mag[improved], 1e-12)
+                                ).mean() * 100.0
+            else:
+                improvement_rate = np.nan
+                improved_gt_error = np.nan
+
+            if np.any(worsened):
+                worsening_rate = (
+                    (new[worsened] - old[worsened]) /
+                    np.maximum(old[worsened], 1e-12)
+                ).mean() * 100.0
+
+                worsened_gt_error = (
+                    new[worsened] /
+                    np.maximum(gt_mag[worsened], 1e-12)
+                ).mean() * 100.0
+
+                worsened_pred_error = (
+                                    new[worsened] /
+                                    np.maximum(pred_mag[worsened], 1e-12)
+                                ).mean() * 100.0
+            else:
+                worsening_rate = np.nan
+                worsened_gt_error = np.nan
 
             print(
-                f"Q{q + 1}: "
+                f"Q{q+1:2d} "
                 f"[{lower:.4f}, {upper:.4f}] "
-                f"N={mask.sum():5d} "
-                f"Improved={improved.mean():.3f}"
+                f"N={mask.sum():5d} | "
+                f"Improved={percentage:6.2f}% | "
+                f"Avg improvement={improvement_rate:6.2f}% | "
+                f"Avg worsening={worsening_rate:6.2f}% | "
+                f"Improved err/GT={improved_gt_error:6.2f}% | "
+                f"Worsened err/GT={worsened_gt_error:6.2f}% | "
+                f"Improved err/pred={improved_pred_error:6.2f}% | "
+                f"Worsened err/pred={worsened_pred_error:6.2f}%"
             )
-
 
 def main():
 
@@ -423,13 +478,18 @@ def main():
     # print_statistics(gt_est_stats)
 
     # Did linear approximation improve anything?
-    linear_regression_approximation(pred_all, gt_all, gt_est, 10)
-    # -> only for large GTs (51-81% of values improved, especially for translation)
+    la_improvement_stats(pred_all, gt_all, gt_est, 10)
+    # -> improvement especially for large GT values and translation
+    # -> improvement of about 20 - 50%
+    # -> worsening of several 100 to 1000 percent
+    # -> worsened is way bigger than GT compared to improved, though regarding pred the distinction is not that great, so simple filtering of worsenings by magnitude not possible 
 
     # plot_bias(gt_est_stats)
+    # plot_bias(pred_stats)
     # plot_values(
     #     values=[
-    #         gt_est_stats["errors_real"],
+    #         gt_est_stats["gt_tracking"],
+    #         gt_est_stats["pred_tracking"],
     #     ],
     #     labels=[
     #         "GT",

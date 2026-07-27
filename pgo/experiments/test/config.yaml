@@ -7,13 +7,15 @@ general:
   options:
     # - pgo
     # - noise_constraints
+    # - la_replace
   # ref_values_sigma: 1e-1
-  nr_scans: 1
-  nr_frames: 4
+  # nr_scans: 1
+  # nr_frames: 4
   # start_scan: 1 # counting from 1
 
 image_registration:
-  ir_type: "2d"
+  ir_type: "3d"
+  window_size: 10
   # step: 1
   # max_metric_change: 20 # in %
   sitk:
@@ -22,8 +24,8 @@ image_registration:
     options:
       # - cross_check
       # - multi_resolution
-      - use_center
-      - patch_mask
+      # - use_center
+      # - patch_mask
 
 # image_registration_3d:
 #   sitk:
@@ -33,7 +35,7 @@ image_registration:
 #       # - cross_check
 #       # - multi_resolution
 
-plot:
-  - plot_ir_error_magnitudes
-  - plot_ir_pose_differences
-  - plot_ir_trajectories
+# plot:
+#   - plot_ir_error_magnitudes
+#   - plot_ir_pose_differences
+#   - plot_ir_trajectories

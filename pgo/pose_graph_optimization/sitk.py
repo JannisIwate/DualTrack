@@ -157,6 +157,158 @@ def sitk_2d_register(
 )
 
 
+def sitk_3d_register(
+    volume_frames:np.ndarray,
+    volume_poses:np.ndarray,
+    slice_frame:np.ndarray,
+    metric: str = "mi",
+    optimizer:str = "gradient",
+    options: str = "",
+) -> tuple[
+    np.ndarray,
+    float,
+    float,
+    float,
+    float,
+]:
+
+    # TODO: Erzeuge Volumen aus Frames und Posen
+
+    # --------------------------------------------------------
+    # init
+    # --------------------------------------------------------
+
+    ## images
+    SPACING_X = 0.22938919 # values from TUSREC, mm per pixel (same for TUSREC24 and 25), needed so that transform is in mm and not pixels
+    SPACING_Y = 0.22097969
+    ORIGIN_X = -73.28984642 # origin of pixel coord system is upper left corner, so negative values for center of image
+    ORIGIN_Y = -52.92463589
+
+    fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
+    moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
+
+    # use center part of image which is not as affected as outer part by pitch and roll
+    if "use_center" in options: # -> Verbesserung von 233% fuer FDR, 240% fuer GPE, 260% fuer Ausfuehrungszeit)
+
+        # image_plot(fixed, title="fixed before")
+        # plt.show()
+        # breakpoint()
+        # image_plot(moving, title="moving before")
+
+        roi_size, roi_index = get_center_roi_params(fixed.GetSize(), 0.5)
+
+        fixed = sitk.RegionOfInterest(
+            fixed,
+            size=roi_size,
+            index=roi_index,
+        )
+        moving = sitk.RegionOfInterest(
+            moving,
+            size=roi_size,
+            index=roi_index,
+        )
+        
+    fixed.SetSpacing((SPACING_X, SPACING_Y))
+    moving.SetSpacing((SPACING_X, SPACING_Y))
+
+    fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
+    moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
+    # image_plot(fixed, title="fixed before")
+    # plt.show()
+    # breakpoint()
+
+    ## registration
+    registration = build_registration_object(metric, optimizer, options)
+
+    # mask to account for non-changing background
+    mask = fixed > 0
+    
+    registration.SetMetricFixedMask(mask)
+    registration.SetMetricMovingMask(mask)
+
+    # extend mask to parts of image which differ to much (spawning feature)
+    if "patch_mask" in options: # -> Verbesserung im Vergleich zu nur Centering von 5% FDR, keine signifikante Verbesserung von GPE, 1.5% fuer Ausfuehrungszeit
+
+        mask = get_mask_from_patches(mask, fixed, moving, ref_transform, 4, 0.7) # 4 and 0.7 turn out to be ideal
+
+    mask.CopyInformation(fixed)
+    # image_plot(mask, title="mask")
+    # image_plot(fixed, title="fixed")
+    # image_plot(moving, title="moving")
+    # plt.show()
+    # breakpoint()
+
+    registration.SetMetricFixedMask(mask)
+    registration.SetMetricMovingMask(mask)
+
+    # initial transform
+    initial = sitk.Euler2DTransform()
+    initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing, gt has center at image center)
+        fixed,
+        moving,
+        initial,
+        sitk.CenteredTransformInitializerFilter.GEOMETRY,
+    )
+
+    # set initial transform to gt transform and evaluate
+    x, y, yaw = pose3_to_se2(gt_transform)
+    initial.SetTranslation((float(x), float(y)))
+    initial.SetAngle(float(yaw))
+    registration.SetInitialTransform(initial)
+    metric_before_gt = registration.MetricEvaluate(fixed, moving)
+
+    # set initial transform to pred transform ref and evaluate
+    x, y, yaw = pose3_to_se2(ref_transform)
+    initial.SetTranslation((float(x), float(y)))
+    initial.SetAngle(float(yaw))
+    registration.SetInitialTransform(initial)
+    metric_before_pred = registration.MetricEvaluate(fixed, moving)
+
+    # set initial transform to identity and evaluate
+    initial.SetTranslation((0, 0))
+    initial.SetAngle(0)
+    registration.SetInitialTransform(initial)
+    metric_before_identity = registration.MetricEvaluate(fixed, moving)
+
+
+    # --------------------------------------------------------
+    # registration
+    # --------------------------------------------------------
+
+    # register
+    transform_reg = registration.Execute(fixed, moving)
+    transform_reg_inv = np.linalg.inv(sitk_to_3dof(transform_reg)) # inverse as sitk finds Tj->i
+    metric_after = registration.GetMetricValue()
+
+    # check images
+    # image_plot(fixed, title="fixed")
+    # image_plot(fixed, title="fixed")
+
+    # image_plot(moving, title="moving")
+    # image_plot(moving, title="moving")
+
+    # registered_image_ir = sitk.Resample(
+    #     moving,
+    #     fixed,
+    #     transform_reg,
+    #     sitk.sitkLinear,
+    #     0.0
+    # )
+    # image_plot(registered_image_ir, title="ir transform")
+    # print(transform_reg)
+    # plt.show()
+    # breakpoint()
+
+    return (
+        transform_reg_inv, # Was jetzt? -> cross check hat nochmal invertiert
+        #sitk_to_3dof(transform_reg),
+        float(metric_before_identity),
+        float(metric_before_gt),
+        float(metric_before_pred),
+        float(metric_after),
+)
+
+
 def build_registration_object(metric, optimizer, options):
 
     registration = sitk.ImageRegistrationMethod()
