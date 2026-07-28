@@ -15,7 +15,7 @@ general:
 
 image_registration:
   ir_type: "3d"
-  window_size: 10
+  window_size: 11
   # step: 1
   # max_metric_change: 20 # in %
   sitk:

@@ -559,11 +559,11 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
                                             counter=counter)
     elif ir_type == "3d":
 
-        WINDOW_SIZE = cfg_get("image_registration.window_size")
+        WINDOW_SIZE = cfg_get(config, "image_registration.window_size")
         if WINDOW_SIZE is None:
-            WINDOW_SIZE = 10
+            WINDOW_SIZE = 11
         pred_inbetween = inbetween_to_accumulated(pred_acc[1:]) # skip first identity)
-        windows, start = sample_sliding_windows(pred_inbetween, WINDOW_SIZE) # shape (438, 10, 4, 4)
+        windows, start = sample_sliding_windows(frames, WINDOW_SIZE) # shape (438, 10, 4, 4)
 
         register_volumes(windows, start, pred_acc, pred_inbetween, config, counter=counter)
 
