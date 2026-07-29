@@ -21,6 +21,7 @@ image_registration:
   sitk:
     metric: "mi"
     optimizer: "gradient"
+    transform_type: "euler" # or "affine" or "euler"
     options:
       # - cross_check
       # - multi_resolution

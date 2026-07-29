@@ -105,6 +105,7 @@ def register_3d(window, pred_acc, sitk_cfg):
     volume_poses = np.delete(pred_acc, center, axis=0)
 
     slice_frame = window[center]
+    slice_frame_pose = pred_acc[center]
 
     (
         T_reg,
@@ -116,6 +117,7 @@ def register_3d(window, pred_acc, sitk_cfg):
         volume_frames=volume_frames,
         volume_poses=volume_poses,
         slice_frame=slice_frame,
+        slice_frame_pose=slice_frame_pose,
         **sitk_cfg,
     )
 
