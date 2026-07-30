@@ -407,7 +407,14 @@ def linear_approximation(
 # IR
 # ==========================================================================
 
-def register_frame_pairs(idc1, idc2, frames_1, frames_2, ir_ref, ir_gt, config, counter=0):
+def register_frame_pairs(idc1,
+                         idc2,
+                         frames_1,
+                         frames_2,
+                         ir_ref,
+                         ir_gt,
+                         config,
+                         counter=0):
 
     ir_metrics = {
         "metric": config.image_registration.sitk.metric,
@@ -448,6 +455,7 @@ def register_volumes(
     first_window_start,
     pred_acc,
     pred_inbetween,
+    gt_acc,
     config,
     counter,
 ):
@@ -463,11 +471,8 @@ def register_volumes(
     # Reference transforms are used by default.
     # Only frames that become the centre of a window are overwritten.
     ir_transforms = np.copy(pred_inbetween)
-
     window_size = windows.shape[1]
-
     half_window = window_size // 2
-
     first_registered = first_window_start + half_window
 
     for i, window in enumerate(windows):
@@ -485,6 +490,7 @@ def register_volumes(
         ) = register_3d(
             window,
             pred_acc[ref_idx_start:ref_idx_end],
+            gt_acc[ref_idx_start:ref_idx_end],
             config.image_registration.sitk,
         )
 
@@ -565,7 +571,20 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
         pred_inbetween = inbetween_to_accumulated(pred_acc[1:]) # skip first identity)
         windows, start = sample_sliding_windows(frames, WINDOW_SIZE) # shape (438, 10, 4, 4)
 
-        register_volumes(windows, start, pred_acc, pred_inbetween, config, counter=counter)
+        ir_ref = pred_acc
+        ir_gt = gt_acc
+        idc1 = np.arange(pred_acc.shape[0] - 2)
+        idc2 = np.arange(1, pred_acc.shape[0] - 1)
+
+        (ir_metrics,
+        ir_transforms,
+        counter) = register_volumes(windows,
+                         start,
+                         pred_acc,
+                         pred_inbetween,
+                         gt_acc,
+                         config,
+                         counter=counter)
 
     else:
 
@@ -590,6 +609,8 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
         ir_transforms_acc, ir_transforms, ir_gt_acc, ir_gt,
         scan["calibration_matrix"], scan["image_shape_hw"], mode="5pt-landmark",
     ))
+
+    confidences = np.ones(pred_acc.shape)
 
     return counter, ir["transforms"]["ir_transforms"], idc1, idc2, confidences
 

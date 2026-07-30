@@ -9,8 +9,8 @@ general:
     # - noise_constraints
     # - la_replace
   # ref_values_sigma: 1e-1
-  # nr_scans: 1
-  # nr_frames: 4
+  nr_scans: 1
+  nr_frames: 11
   # start_scan: 1 # counting from 1
 
 image_registration:
@@ -27,14 +27,6 @@ image_registration:
       # - multi_resolution
       # - use_center
       # - patch_mask
-
-# image_registration_3d:
-#   sitk:
-#     metric: "mi"
-#     optimizer: "gradient"
-#     options:
-#       # - cross_check
-#       # - multi_resolution
 
 # plot:
 #   - plot_ir_error_magnitudes

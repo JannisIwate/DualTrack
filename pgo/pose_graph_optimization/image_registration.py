@@ -96,7 +96,10 @@ def register_2d(
     ]
 
 
-def register_3d(window, pred_acc, sitk_cfg):
+def register_3d(window: np.ndarray,
+                pred_acc: np.ndarray,
+                gt_acc: np.ndarray,
+                sitk_cfg):
 
     window_size = len(window)
     center = window_size // 2
@@ -106,6 +109,7 @@ def register_3d(window, pred_acc, sitk_cfg):
 
     slice_frame = window[center]
     slice_frame_pose = pred_acc[center]
+    slice_frame_pose_gt = gt_acc[center]
 
     (
         T_reg,
@@ -118,8 +122,12 @@ def register_3d(window, pred_acc, sitk_cfg):
         volume_poses=volume_poses,
         slice_frame=slice_frame,
         slice_frame_pose=slice_frame_pose,
+        slice_frame_pose_gt=slice_frame_pose_gt,
         **sitk_cfg,
     )
+
+    # compute relative pose
+    T_reg = T_reg * np.linalg.inv(pred_acc[center - 1])
 
     return (
         T_reg,

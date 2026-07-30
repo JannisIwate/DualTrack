@@ -1,28 +1,35 @@
 initial:
 
-  final_drift_rate: 5.5440275272729265
-  avg_drift_rate: 6.549138535182255
-  max_drift: 8.950098080031957
-  sum_of_drift: 2143.6314900058264
+  final_drift_rate: 8.543994835147926
+  avg_drift_rate: 24.578523753804003
+  max_drift: 0.35233365941500355
+  sum_of_drift: 2.6808372520620263
 
-  avg_global_displacement_error: 5.312451786465115
-  max_global_displacement_error: 9.943784558110767
-  avg_local_displacement_error: 0.12312686670985487
-  max_local_displacement_error: 0.5030657106803523
-  tusrec_final_score: 0.592637520994654
-  relative_global_err_pct: 0.0817962324557205
+  avg_global_displacement_error: 0.3392690420150757
+  max_global_displacement_error: 0.5151082277297974
+  avg_local_displacement_error: 0.13352499902248383
+  max_local_displacement_error: 0.20205970108509064
+  tusrec_final_score: 0.34027201635751225
+  relative_global_err_pct: 0.34760773181915283
 
-after pgo:
+image registration:
 
-  final_drift_rate: 5.588728150034639
-  avg_drift_rate: 7.041884766286033
-  max_drift: 9.053140124933451
-  sum_of_drift: 2219.3085632625316
+  metric: mi
+  metric_before: -1.0640494610372122
+  metric_before_gt: -1.0545976037353286
+  metric_before_pred: -1.094466541381408
+  metric_after: -1.111160014750402
+  ir_execution_time: 2.202248692512512
 
-  avg_global_displacement_error: 5.444234414233102
-  max_global_displacement_error: 10.0359243022071
-  avg_local_displacement_error: 0.12396621973150307
-  max_local_displacement_error: 0.5046248642934693
-  tusrec_final_score: 0.588286008039919
-  relative_global_err_pct: 0.08540685604222947
+  final_drift_rate: 309.38636598832124
+  avg_drift_rate: 122.3428534548187
+  max_drift: 40.75153776071751
+  sum_of_drift: 107.84435602578752
+
+  avg_global_displacement_error: 9.973297119140625
+  max_global_displacement_error: 41.09368896484375
+  avg_local_displacement_error: 4.408628463745117
+  max_local_displacement_error: 12.522294998168945
+  tusrec_final_score: 0.7026205485537742
+  relative_global_err_pct: 1.3742505311965942
 

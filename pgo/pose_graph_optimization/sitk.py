@@ -57,7 +57,8 @@ def sitk_2d_register(
     fixed.SetSpacing((SPACING_X, SPACING_Y))
     moving.SetSpacing((SPACING_X, SPACING_Y))
 
-    fixed.SetOrigin((ORIGIN_X, ORIGIN_Y))
+    fixed.SetOrigin((ORIGIN_X, ORIGIN_Y)) # origin in SITK is not origin in DualTrack! Also, origin only has minimal effect when it is the same for both
+    # (still it makes sense to leave it as is as CenteredTransformInitializer computes R center from this)
     moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
     # image_plot(fixed, title="fixed before")
     # plt.show()
@@ -88,11 +89,10 @@ def sitk_2d_register(
     registration.SetMetricMovingMask(mask)
 
     # initial transform
-    initial = sitk.Euler2DTransform()
     initial = sitk.CenteredTransformInitializer( # set center to image center (though this is implicitely achieved by the values of origin and spacing, gt has center at image center)
         fixed,
         moving,
-        initial,
+        sitk.Euler2DTransform(),
         sitk.CenteredTransformInitializerFilter.GEOMETRY,
     )
 
@@ -146,16 +146,15 @@ def sitk_2d_register(
     # breakpoint()
 
     return (
-        transform_reg_inv, # Was jetzt? -> cross check hat nochmal invertiert
-        #sitk_to_3dof(transform_reg),
+        transform_reg_inv,
         float(metric_before_identity),
         float(metric_before_gt),
         float(metric_before_pred),
         float(metric_after),
-)
+    )
 
 # TODO: viermal Slice ausprobieren
-# TODO: Idee: Nimm ein Slice aus Volumen bei Frame Pose, veraendere Pose mehrmals leicht anhand von t und R Varianzen, berechne jedes Mal Metrik zwischen Frame und Slice,
+# TODO: Idee: Nimm ein Slice aus Volumen bei Frame Pose, veraendere Pose mehrmals leicht anhand von t und R Varianzen, berechne jedes Mal 2d Metrik zwischen Frame und Slice,
 # Pose mit bester Metric wird zurueckgegeben
 
 def sitk_3d_register(
@@ -163,6 +162,7 @@ def sitk_3d_register(
     volume_poses: np.ndarray,
     slice_frame: np.ndarray,
     slice_frame_pose: np.ndarray,
+    slice_frame_pose_gt: np.ndarray,
     metric: str = "mi",
     optimizer: str = "gradient",
     options: str = "",
@@ -178,74 +178,125 @@ def sitk_3d_register(
     options = options or ""
 
     # build volumes
-    print("building volumes ...")
     volume, world_min, _ = build_volume_from_slices(volume_frames, volume_poses)
-    slice_volume = slice_to_volume(slice_frame, volume.GetSpacing()[2], True)
-    print("Done building volumes")
+    slice_volume = slice_to_volume(slice_frame, volume.GetSpacing()[2], True) # viermal slice
 
-    # account for offset of volume coord system in world (as slice ref pose is in world coords)
-    slice_pose_cpy = slice_frame_pose.copy()
-    moving_matrix = np.eye(4)
-    moving_matrix[:3, 3] = -np.asarray(world_min) # origin of volume coords is translated by min coords in world
-    slice_ref_pose = moving_matrix @ slice_pose_cpy
-
-    # TODO Think about applying global ref pose to volume coords
-    print(world_min)
-
-    print(slice_frame_pose)
-    print(slice_ref_pose)
+    fixed = slice_volume
+    moving = volume
 
     # init IR
     registration = build_registration_object(metric, optimizer, options)
 
-    slice_ref_pose = slice_frame_pose
-    R = slice_ref_pose[:3, :3].astype(np.float64)
-    t = slice_ref_pose[:3, 3].astype(np.float64)
+    # set initial transform to gt transform and evaluate
+    initial = set_transform_from_pose(
+        fixed,
+        moving,
+        slice_frame_pose_gt,
+        transform_type,
+    )
+    registration.SetInitialTransform(initial)
+    metric_before_gt = registration.MetricEvaluate(
+        fixed,
+        moving,
+    )
 
-    if transform_type.lower() == "versor":
+    # set initial transform to predicted transform and evaluate
+    initial = set_transform_from_pose(
+        fixed,
+        moving,
+        slice_frame_pose,
+        transform_type,
+    )
+    registration.SetInitialTransform(initial)
+    metric_before_pred = registration.MetricEvaluate(
+        fixed,
+        moving,
+    )
 
-        U, _, Vt = np.linalg.svd(R) # make R strictly orthogonal for versor
-        R_corrected = U @ Vt
+    # set initial transform to identity and evaluate
+    initial = set_transform_from_pose(
+            fixed,
+            moving,
+            np.eye(4),
+            transform_type,
+        )
+    registration.SetInitialTransform(initial)
+    metric_before_identity = registration.MetricEvaluate(
+        fixed,
+        moving,
+    )
 
-        if np.linalg.det(R_corrected) < 0:
-            U[:, -1] *= -1
-            R_corrected = U @ Vt
+    # register
+    transform_reg = registration.Execute(
+        fixed=fixed,
+        moving=moving,
+    )
+    transform_reg = sitk_to_6dof(transform_reg)
+    metric_after = registration.GetMetricValue()
+
+    return (
+            transform_reg, # global pose
+            float(metric_before_identity),
+            float(metric_before_gt),
+            float(metric_before_pred),
+            float(metric_after),
+        )
+
+
+def set_transform_from_pose(fixed,
+                            moving,
+                            pose,
+                            transform_type):
+
+    R = pose[:3, :3].astype(np.float64)
+    t = pose[:3, 3].astype(np.float64)
+
+    transform_type = transform_type.lower()
+
+    if transform_type == "versor":
 
         initial = sitk.VersorRigid3DTransform()
-        initial.SetMatrix(R_corrected.reshape(-1).tolist())
 
-    elif transform_type.lower() == "affine":
+        initial.SetMatrix(correct_to_orthogonal(R).reshape(-1).tolist())
+        initial.SetTranslation(t.tolist())
+
+    elif transform_type == "affine":
 
         initial = sitk.AffineTransform(3)
         initial.SetMatrix(R.reshape(-1).tolist())
+        initial.SetTranslation(t.tolist())
 
-    elif transform_type.lower() == "euler":
+    elif transform_type == "euler":
 
-        initial = sitk.CenteredTransformInitializer(
-            slice_volume,
-            volume,
-            sitk.Euler3DTransform(),
-            sitk.CenteredTransformInitializerFilter.GEOMETRY
-        )
+        initial = sitk.Euler3DTransform()
+        initial.SetMatrix(correct_to_orthogonal(R).reshape(-1).tolist())
+        initial.SetTranslation(t.tolist())
 
     else:
-        raise ValueError(f"Unknown transform_type '{transform_type}'. ")
+        raise ValueError(f"Unknown transform_type '{transform_type}'")
 
-    initial.SetTranslation(t.tolist())
-
-    registration.SetInitialTransform(initial, inPlace=False)
-
-    print("registering ...")
-    # register
-    transform_reg = registration.Execute(
-        fixed=slice_volume,
-        moving=volume,
+    # center
+    initial = sitk.CenteredTransformInitializer(
+        fixed,
+        moving,
+        initial,
+        sitk.CenteredTransformInitializerFilter.GEOMETRY,
     )
-    print("Done with registering")
-    print(volume.GetOrigin())
-    print(slice_volume.GetOrigin())
 
-    return transform_reg, 1, 1, 1, 1
+    return initial
+
+
+def correct_to_orthogonal(rotation_matrix):
+
+    U, _, Vt = np.linalg.svd(rotation_matrix)
+    R_corrected = U @ Vt
+
+    if np.linalg.det(R_corrected) < 0:
+
+        U[:, -1] *= -1
+        R_corrected = U @ Vt
+
+    return R_corrected
 
 
 def slice_to_volume(slice:np.ndarray, z_spacing:int = 1, expand:bool = False):
@@ -301,20 +352,19 @@ def build_volume_from_slices(
     ])
 
     # convert pixel to image coords
-    image_corners[:, 0] = image_corners[:, 0] * sx + ox
+    image_corners[:, 0] = image_corners[:, 0] * sx + ox # in image coords
     image_corners[:, 1] = image_corners[:, 1] * sy + oy
 
     # get corner positions in world
     world_points = []
 
-    for pose in poses:
+    for pose in poses: # first is identity
 
-        pts = (pose @ image_corners.T).T[:, :3]
+        pts = (pose @ image_corners.T).T[:, :3] # points are in stored in rows, need columns
         world_points.append(pts)
 
-    world_points = np.concatenate(world_points)
-
-    world_min = world_points.min(axis=0)
+    world_points = np.concatenate(world_points) # all corner points in world
+    world_min = world_points.min(axis=0) # min x, y and z
     world_max = world_points.max(axis=0)
 
     # create empty volume
@@ -342,8 +392,8 @@ def build_volume_from_slices(
         indexing="xy",
     )
 
-    image_points = np.stack([ # put all points into same layer
-        xx * sx + ox,
+    image_points = np.stack([ # put all points into same starting slayer
+        xx * sx + ox, # image coords
         yy * sy + oy,
         np.zeros_like(xx),
         np.ones_like(xx),
@@ -542,6 +592,25 @@ def sitk_to_3dof(T_itk) -> np.ndarray:
         ],
         dtype=np.float64,
     )
+
+    return T
+
+
+def sitk_to_6dof(T_itk) -> np.ndarray:
+
+    R = np.array(
+        T_itk.GetMatrix(),
+        dtype=np.float64,
+    ).reshape(3, 3)
+
+    t = np.array(
+        T_itk.GetTranslation(),
+        dtype=np.float64,
+    )
+
+    T = np.eye(4, dtype=np.float64)
+    T[:3, :3] = R
+    T[:3, 3] = t
 
     return T
 
