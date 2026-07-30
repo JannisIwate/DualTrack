@@ -28,7 +28,7 @@ image_registration:
       # - use_center
       # - patch_mask
 
-# plot:
-#   - plot_ir_error_magnitudes
-#   - plot_ir_pose_differences
-#   - plot_ir_trajectories
+plot:
+  - plot_ir_error_magnitudes
+  - plot_ir_pose_differences
+  - plot_ir_trajectories

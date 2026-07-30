@@ -1,35 +1,35 @@
 initial:
 
-  final_drift_rate: 8.543994835147926
-  avg_drift_rate: 24.578523753804003
+  final_drift_rate: 13.696083262035469
+  avg_drift_rate: 26.03620820095455
   max_drift: 0.35233365941500355
-  sum_of_drift: 2.6808372520620263
+  sum_of_drift: 2.4642167996577067
 
-  avg_global_displacement_error: 0.3392690420150757
-  max_global_displacement_error: 0.5151082277297974
-  avg_local_displacement_error: 0.13352499902248383
+  avg_global_displacement_error: 0.32168513536453247
+  max_global_displacement_error: 0.5119441151618958
+  avg_local_displacement_error: 0.1328335851430893
   max_local_displacement_error: 0.20205970108509064
-  tusrec_final_score: 0.34027201635751225
-  relative_global_err_pct: 0.34760773181915283
+  tusrec_final_score: 0.3571212113257036
+  relative_global_err_pct: 0.36186638474464417
 
 image registration:
 
   metric: mi
-  metric_before: -1.0640494610372122
-  metric_before_gt: -1.0545976037353286
-  metric_before_pred: -1.094466541381408
-  metric_after: -1.111160014750402
-  ir_execution_time: 2.202248692512512
+  metric_before: -1.1050130313899744
+  metric_before_gt: -1.0610953640494514
+  metric_before_pred: -1.1012814263366955
+  metric_after: -1.147922837444678
+  ir_execution_time: 2.1573548316955566
 
-  final_drift_rate: 309.38636598832124
-  avg_drift_rate: 122.3428534548187
-  max_drift: 40.75153776071751
-  sum_of_drift: 107.84435602578752
+  final_drift_rate: 17.21492499320341
+  avg_drift_rate: 16.160512598384397
+  max_drift: 6.8365699882218385
+  sum_of_drift: 19.564166011394953
 
-  avg_global_displacement_error: 9.973297119140625
-  max_global_displacement_error: 41.09368896484375
-  avg_local_displacement_error: 4.408628463745117
-  max_local_displacement_error: 12.522294998168945
-  tusrec_final_score: 0.7026205485537742
-  relative_global_err_pct: 1.3742505311965942
+  avg_global_displacement_error: 3.1620078086853027
+  max_global_displacement_error: 10.202091217041016
+  avg_local_displacement_error: 1.3683959245681763
+  max_local_displacement_error: 2.793076753616333
+  tusrec_final_score: 0.6000692836215985
+  relative_global_err_pct: 0.2773376703262329
 

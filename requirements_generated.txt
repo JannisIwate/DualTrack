@@ -36,3 +36,4 @@ gtsam
 sklearn
 simpleitk
 shutil
+pyvista

@@ -178,8 +178,11 @@ def sitk_3d_register(
     options = options or ""
 
     # build volumes
-    volume, world_min, _ = build_volume_from_slices(volume_frames, volume_poses)
-    slice_volume = slice_to_volume(slice_frame, volume.GetSpacing()[2], True) # viermal slice
+    volume, _, _ = build_volume_from_slices(volume_frames, volume_poses)
+    slice_volume = slice_to_volume(slice_frame,
+                                   slice_frame_pose,
+                                   volume.GetSpacing()[2],
+                                   thickness=4)
 
     fixed = slice_volume
     moving = volume
@@ -234,6 +237,14 @@ def sitk_3d_register(
     transform_reg = sitk_to_6dof(transform_reg)
     metric_after = registration.GetMetricValue()
 
+    slice_volume_after = slice_to_volume(slice_frame,
+                                    transform_reg,
+                                    volume.GetSpacing()[2],
+                                    thickness=4)
+    
+    # show_volumes([volume, slice_volume, slice_volume_after], outline_colors=["red", "black", "green"])
+    # breakpoint()
+
     return (
             transform_reg, # global pose
             float(metric_before_identity),
@@ -241,6 +252,70 @@ def sitk_3d_register(
             float(metric_before_pred),
             float(metric_after),
         )
+
+
+import numpy as np
+import pyvista as pv
+import SimpleITK as sitk
+
+
+import numpy as np
+import pyvista as pv
+import SimpleITK as sitk
+
+
+import itertools
+import numpy as np
+import pyvista as pv
+import SimpleITK as sitk
+
+
+def show_volumes(
+    volumes: list[sitk.Image],
+    opacities=None,
+    outline_colors=None,
+):
+    if len(volumes) == 0:
+        raise ValueError("At least one volume must be provided.")
+
+    if opacities is None:
+        opacities = [0.25] * len(volumes)
+
+    if len(opacities) != len(volumes):
+        raise ValueError("Need one opacity per volume.")
+
+    def sitk_to_grid(img: sitk.Image):
+
+        arr = sitk.GetArrayFromImage(img)
+
+        grid = pv.ImageData()
+        grid.dimensions = np.array(arr.shape[::-1])
+        grid.spacing = img.GetSpacing()
+        grid.origin = img.GetOrigin()
+
+        grid.point_data["values"] = arr.ravel(order="F")
+
+        return grid
+
+    plotter = pv.Plotter()
+
+    for img, opacity in zip(volumes, opacities):
+
+        grid = sitk_to_grid(img)
+
+        plotter.add_volume(
+            grid,
+            opacity=opacity,
+        )
+
+        plotter.add_mesh(
+            grid.outline(),
+            color=next(itertools.cycle(outline_colors)),
+            line_width=4,
+        )
+
+    plotter.add_axes()
+    plotter.show()
 
 
 def set_transform_from_pose(fixed,
@@ -299,20 +374,24 @@ def correct_to_orthogonal(rotation_matrix):
     return R_corrected
 
 
-def slice_to_volume(slice:np.ndarray, z_spacing:int = 1, expand:bool = False):
+def slice_to_volume(
+    slice: np.ndarray,
+    pose: np.ndarray,
+    z_spacing: float,
+    thickness: int = 4,
+) -> sitk.Image:
 
-    slice_volume_array = slice[np.newaxis].astype(np.float32)
+    # create four identical slices
+    slice_volume_array = np.repeat(
+        slice[np.newaxis].astype(np.float32),
+        repeats=thickness,
+        axis=0,
+    )
 
-    if expand:
-        slice_volume_array = np.repeat(
-            slice[np.newaxis].astype(np.float32),
-            repeats=4,
-            axis=0,
-        )
+    img = sitk.GetImageFromArray(slice_volume_array)
 
-    slice_volume = sitk.GetImageFromArray(slice_volume_array)
-
-    slice_volume.SetSpacing(
+    # init
+    img.SetSpacing(
         (
             SPACING_X,
             SPACING_Y,
@@ -320,17 +399,18 @@ def slice_to_volume(slice:np.ndarray, z_spacing:int = 1, expand:bool = False):
         )
     )
 
-    slice_volume.SetOrigin(
-        (
-            ORIGIN_X,
-            ORIGIN_Y,
-            0.0,
-        )
-    )
+    R = pose[:3, :3]
+    t = pose[:3, 3]
 
-    slice_volume.SetDirection(np.eye(3).ravel())
+    # local image coordinate system -> world
+    img.SetDirection(R.reshape(-1).tolist())
 
-    return slice_volume
+    # first slice lies exactly at the given pose
+    origin = [ORIGIN_X + t[0], ORIGIN_Y + t[1], t[2]] # account for pixel coords!
+    origin = [float(x) for x in origin] # SetOrigin needs float instead of np.float :/
+    img.SetOrigin(origin)
+
+    return img
 
 
 def build_volume_from_slices(

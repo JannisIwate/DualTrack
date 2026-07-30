@@ -127,10 +127,14 @@ def register_3d(window: np.ndarray,
     )
 
     # compute relative pose
-    T_reg = T_reg * np.linalg.inv(pred_acc[center - 1])
+    T_reg = np.linalg.inv(pred_acc[center - 1]) @ T_reg
+    T_ref = np.linalg.inv(pred_acc[center - 1]) @ slice_frame_pose
+    # print(T_reg)
+    # print(T_ref)
+    # breakpoint()
 
     return (
-        T_reg,
+        T_ref,
         metric_before_forward,
         metric_before_gt_forward,
         metric_before_pred_forward,

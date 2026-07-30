@@ -239,7 +239,7 @@ def load_scan_data(input_pred: str, el: str, sweep_index: int, config):
     with h5py.File(sweep_path, "r") as f:
 
         nr_of_frames = cfg_get(config, "general.nr_frames")
-        nr_of_frames = len(f["images"]) if nr_of_frames is None else nr_of_frames + 1
+        nr_of_frames = len(f["images"]) if nr_of_frames is None else nr_of_frames# + 1
 
         pred_acc = np.array(f["pred_tracking_glob"][:nr_of_frames])  # normalized acc world poses
         pred_inbetween = np.array(f["pred_tracking_loc"][:nr_of_frames])  # relative poses Ti->j
@@ -569,10 +569,13 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
         if WINDOW_SIZE is None:
             WINDOW_SIZE = 11
         pred_inbetween = inbetween_to_accumulated(pred_acc[1:]) # skip first identity)
+        gt_inbetween = inbetween_to_accumulated(gt_acc[1:]) # skip first identity)
         windows, start = sample_sliding_windows(frames, WINDOW_SIZE) # shape (438, 10, 4, 4)
+        # print(windows.shape)
+        # breakpoint()
 
-        ir_ref = pred_acc
-        ir_gt = gt_acc
+        ir_ref = pred_inbetween
+        ir_gt = gt_inbetween
         idc1 = np.arange(pred_acc.shape[0] - 2)
         idc2 = np.arange(1, pred_acc.shape[0] - 1)
 
