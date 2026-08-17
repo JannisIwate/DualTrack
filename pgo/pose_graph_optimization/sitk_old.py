@@ -170,7 +170,6 @@ def sitk_3d_register(
     optimizer: str = "gradient",
     options: str = "",
     transform_type: str = "versor",
-    debug: bool = False,
 ) -> tuple[
     np.ndarray,
     float,
@@ -184,9 +183,8 @@ def sitk_3d_register(
 
     # build volumes
     start = time.time()
-    volume, _, _ = build_volume_from_slices(volume_frames, volume_poses, options=options)
+    volume, _, _ = build_volume_from_slices(volume_frames, volume_poses)
     volume_building_time = time.time() - start
-    
     start = time.time()
     # slice_volume = slice_to_volume(slice_frame,
     #                                slice_frame_pose,
@@ -233,10 +231,6 @@ def sitk_3d_register(
         transform_type,
     )
     registration.SetInitialTransform(initial)
-    print(
-        f"Fixed physical size: {np.array(fixed.GetSize()) * np.array(fixed.GetSpacing())}, "
-        f"Moving physical size: {np.array(moving.GetSize()) * np.array(moving.GetSpacing())}"
-    )
     metric_before_gt = registration.MetricEvaluate(
         fixed,
         moving,
@@ -277,28 +271,30 @@ def sitk_3d_register(
     reg_time = time.time() - start
     transform_reg = sitk_to_6dof(transform_reg)
     metric_after = registration.GetMetricValue()
+
+    # slice_volume_after = slice_to_volume(slice_frame,
+    #                                 transform_reg,
+    #                                 volume.GetSpacing()[2],
+    #                                 thickness=4)
+
+    # slice_volume_after = sitk.GetImageFromArray(slice_frame.astype(np.float32))
+    # slice_volume_after.SetSpacing(
+    #     (
+    #         SPACING_X,
+    #         SPACING_Y,
+    #         volume.GetSpacing()[2],
+    #     )
+    # )
+    # slice_volume = sitk.Expand(slice_, [1, 1, 4])
     
-    show_volumes( # passt nicht unbedingt
-        volumes=[volume, slice_volume, slice_volume, slice_volume],
-        volume_poses=[np.eye(4), transform_reg, slice_frame_pose_gt, slice_frame_pose],
-        volume_outline_colors=["black", "red", "green", "yellow"],
-        frames=volume_frames,
-        frame_poses=volume_poses
-    )
+    show_volumes([volume, slice_volume], outline_colors=["red", "black"])
     # breakpoint()
     all_time = time.time() - all_start
-    
-    if debug:
-        print(f"\n=== 3D Registration Timing ===")
-        print(f"Total time:      {all_time:.3f}s")
-        print(f"Vol building:    {volume_building_time:.3f}s ({(volume_building_time / all_time) * 100:.1f}%)")
-        print(f"Slice building:  {slice_building_time:.3f}s ({(slice_building_time / all_time) * 100:.1f}%)")
-        print(f"Registration:    {reg_time:.3f}s ({(reg_time / all_time) * 100:.1f}%)")
-        print(f"Volume shape: {moving.GetSize()}")
-        print(f"Fixed shape: {fixed.GetSize()}")
-        print(f"Metric before (id/gt/pred): {metric_before_identity:.4f} / {metric_before_gt:.4f} / {metric_before_pred:.4f}")
-        print(f"Metric after: {metric_after:.4f}")
-        print()
+    # print(f"Total time: {all_time}")
+    # print(f"vol building: {volume_building_time}, {(volume_building_time / all_time) * 100}%") # -> heavily fluctuates
+    # print(f"slice building: {slice_building_time}, {(slice_building_time / all_time) * 100}%") # -> takes roughly the same time every try, very little time
+    # print(f"reg: {reg_time}, {(reg_time / all_time) * 100}%") # -> heavily fluctuates
+    # breakpoint()
 
     return (
             transform_reg, # global pose
@@ -309,54 +305,22 @@ def sitk_3d_register(
         )
 
 
-def _frame_plane_mesh(frame: np.ndarray, pose: np.ndarray, spacing=(SPACING_X, SPACING_Y)) -> pv.PolyData:
-    """Create a thin quad mesh for one 2D frame in world coordinates."""
-    h, w = frame.shape
-
-    # local xy-plane corners with z=0, matching image pixel layout
-    x = np.array([0, w - 1, w - 1, 0], dtype=np.float64) * spacing[0]
-    y = np.array([0, 0, h - 1, h - 1], dtype=np.float64) * spacing[1]
-    z = np.zeros(4, dtype=np.float64)
-    local = np.column_stack([x, y, z])
-
-    # transform to world coordinates
-    hom = np.hstack([local, np.ones((local.shape[0], 1), dtype=np.float64)])
-    world = (pose @ hom.T).T[:, :3]
-
-    # create quad faces: (n, 4, idx)
-    faces = np.array([
-        [4, 0, 1, 2, 3],
-    ], dtype=np.int64)
-
-    mesh = pv.PolyData(world)
-    mesh.faces = faces
-    return mesh
-
-
 def show_volumes(
     volumes: list[sitk.Image],
-    volume_poses: list[np.ndarray] | None = None,
-    frames: list[np.ndarray] | None = None,
-    frame_poses: list[np.ndarray] | None = None,
-    volume_outline_colors=None,
-    frame_color="blue",
+    opacities=None,
+    outline_colors=None,
 ):
     if len(volumes) == 0:
         raise ValueError("At least one volume must be provided.")
 
-    if volume_poses is None:
-        volume_poses = [np.eye(4) for _ in volumes]
+    if opacities is None:
+        opacities = [0.25] * len(volumes)
 
-    if len(volume_poses) != len(volumes):
-        raise ValueError("volumes and volume_poses must have the same length.")
-
-    if volume_outline_colors is None:
-        volume_outline_colors = ["black"] * len(volumes)
-
-    if len(volume_outline_colors) != len(volumes):
-        raise ValueError("Need one outline color per volume.")
+    if len(opacities) != len(volumes):
+        raise ValueError("Need one opacity per volume.")
 
     def sitk_to_grid(img: sitk.Image):
+
         arr = sitk.GetArrayFromImage(img)
 
         grid = pv.ImageData()
@@ -370,39 +334,20 @@ def show_volumes(
 
     plotter = pv.Plotter()
 
-    # Volumes
-    for img, pose, color in zip(
-        volumes,
-        volume_poses,
-        volume_outline_colors,
-    ):
+    for img, opacity in zip(volumes, opacities):
+
         grid = sitk_to_grid(img)
 
-        outline = grid.outline()
-        outline.transform(pose, inplace=True)
-
-        plotter.add_mesh(
-            outline,
-            color=color,
-            line_width=4,
+        plotter.add_volume(
+            grid,
+            opacity=opacity,
         )
 
-    # Frames
-    if frames is not None:
-        if frame_poses is None:
-            raise ValueError("frame_poses must be provided when frames are shown.")
-
-        if len(frames) != len(frame_poses):
-            raise ValueError("frames and frame_poses must have the same length.")
-
-        for frame, pose in zip(frames, frame_poses):
-            plane = _frame_plane_mesh(frame, pose)
-
-            plotter.add_mesh(
-                plane.extract_all_edges(),
-                color=frame_color,
-                line_width=4,
-            )
+        plotter.add_mesh(
+            grid.outline(),
+            color=next(itertools.cycle(outline_colors)),
+            line_width=4,
+        )
 
     plotter.add_axes()
     plotter.show()
@@ -503,58 +448,11 @@ def slice_to_volume(
     return img
 
 
-def _sparse_compound_volume(
-    flat_idx: np.ndarray,
-    values: np.ndarray,
-    volume_size: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Accumulate voxel sums/counts without allocating a full-length bincount array.
-
-    The expensive part in the original code was:
-        np.bincount(flat_idx, minlength=volume_total)
-    which creates an array of length equal to the entire volume bounding box. Here we
-    compress to only the occupied voxels first, then scatter back into the dense array
-    only for the actually used indices.
-    """
-    if flat_idx.size == 0:
-        dense_shape = (volume_size[2], volume_size[1], volume_size[0])
-        return (
-            np.zeros(dense_shape, dtype=np.float32),
-            np.zeros(dense_shape, dtype=np.float32),
-        )
-
-    unique_idx, inverse = np.unique(flat_idx, return_inverse=True)
-    sums = np.bincount(inverse, weights=values, minlength=unique_idx.size)
-    counts = np.bincount(inverse, minlength=unique_idx.size)
-
-    total_voxels = int(volume_size[0] * volume_size[1] * volume_size[2])
-    dense_values = np.zeros(total_voxels, dtype=np.float32)
-    dense_counts = np.zeros(total_voxels, dtype=np.float32)
-    dense_values[unique_idx] = sums.astype(np.float32)
-    dense_counts[unique_idx] = counts.astype(np.float32)
-
-    dense_shape = (volume_size[2], volume_size[1], volume_size[0])
-    volume_np = dense_values.reshape(dense_shape)
-    weight_np = dense_counts.reshape(dense_shape)
-    return volume_np, weight_np
-
-
 def build_volume_from_slices(
     frames: np.ndarray,
     poses: np.ndarray,
     volume_spacing: tuple[float, float, float] = (SPACING_X, SPACING_Y, SPACING_X),
-    options: str = "",
 ):
-    """
-    Build 3D volume from 2D frames with known poses.
-
-    This keeps the same API as the original implementation, but avoids the expensive
-    full-volume bincount allocation by first reducing only to occupied voxels.
-
-    Options:
-        "fill_holes": Enable hole filling (disabled by default for speed)
-        Any other options are ignored here
-    """
     # init
     sx, sy = (SPACING_X, SPACING_Y)
     # ox, oy = (ORIGIN_X, ORIGIN_Y)
@@ -592,6 +490,17 @@ def build_volume_from_slices(
         (world_max - world_min) / spacing
     ).astype(int) + 1
 
+    volume_np = np.zeros(
+        (
+            volume_size[2],
+            volume_size[1],
+            volume_size[0],
+        ),
+        dtype=np.float32,
+    )
+
+    weight_np = np.zeros_like(volume_np)
+
     # create image coord system based on frames meta data
     xx, yy = np.meshgrid(np.arange(w), np.arange(h), indexing="xy")
     ximg = (xx * sx + ox).ravel()
@@ -615,9 +524,13 @@ def build_volume_from_slices(
     flat_idx = flat_idx[valid]
     values = frames.reshape(n, -1)[valid]
 
-    # Sparse-style accumulation: avoid full-volume bincount length.
-    # This keeps memory proportional to occupied voxels instead of the whole bounding box.
-    volume_np, weight_np = _sparse_compound_volume(flat_idx, values, volume_size)
+    # assign voxel values
+    total = volume_size[0] * volume_size[1] * volume_size[2]
+    sums   = np.bincount(flat_idx, weights=values, minlength=total)
+    counts = np.bincount(flat_idx, minlength=total)
+
+    volume_np = sums.reshape(volume_size[2], volume_size[1], volume_size[0]).astype(np.float32)
+    weight_np = counts.reshape(volume_size[2], volume_size[1], volume_size[0]).astype(np.float32)
 
     # average overlapping voxels
     mask = weight_np > 0
@@ -629,11 +542,13 @@ def build_volume_from_slices(
     volume.SetOrigin(tuple(world_min))
     volume.SetDirection(np.eye(3).flatten())
 
-    # fill holes (only if explicitly requested)
-    if "fill_holes" in options:
-        mask_image = sitk.GetImageFromArray(mask.astype(np.uint8))
-        mask_image.CopyInformation(volume)
-        volume = _fill_interior_holes(volume, mask_image)
+    # fill holes
+    mask_image = sitk.GetImageFromArray(mask.astype(np.uint8))
+    mask_image.CopyInformation(volume)
+
+    start = time.time()
+    # volume = _fill_interior_holes(volume, mask_image) # -> braucht nicht viel Zeit gemessen an Gesamtausfuehrungszeit
+    # print(f"hole filling: {time.time() - start}")
 
     return (
         volume,
@@ -662,12 +577,6 @@ def show_orthogonal_slices(volume: sitk.Image, title: str = "") -> None:
 
 
 def build_registration_object(metric, optimizer, options):
-    """
-    Build SITK registration object with optimized parameters.
-    
-    KEY OPTIMIZATION: Reduced iterations from 200 to 50 for faster registration.
-    This prevents long registration times (+10 seconds) on larger volumes.
-    """
 
     registration = sitk.ImageRegistrationMethod()
 
@@ -688,13 +597,8 @@ def build_registration_object(metric, optimizer, options):
     registration.SetInterpolator(sitk.sitkLinear)
 
     if optimizer == "gradient":
-        # OPTIMIZED: Reduced numberOfIterations from 200 to 50
-        # This provides ~4x speedup while maintaining registration quality
-        registration.SetOptimizerAsRegularStepGradientDescent(
-            learningRate=0.1, 
-            minStep=1e-4, 
-            numberOfIterations=50  # REDUCED from 200
-        )
+
+        registration.SetOptimizerAsRegularStepGradientDescent(learningRate=0.1, minStep=1e-4, numberOfIterations=50)
         registration.SetOptimizerScalesFromPhysicalShift() # balance translation and rotation
 
     elif optimizer == "exhaustive": # takes too long
@@ -718,8 +622,10 @@ def build_registration_object(metric, optimizer, options):
             "Use 'gradient' or 'exhaustive'."
         )
 
-    # multi-resolution (perform registration at different resolutions)
-    # Highly recommended: improves convergence and reduces iteration count
+    # multi-resolution (perform registration at different resolutions) -> keine signifikante Verbesserung von FDR oder GPE, -25% fuer Ausfuehrungszeit
+    # registration.SetSmoothingSigmasPerLevel([SPACING_X/2])
+    # registration.SetShrinkFactorsPerLevel([1])
+
     if "multi_resolution" in options:
 
         registration.SetShrinkFactorsPerLevel([4, 2, 1])
@@ -954,6 +860,157 @@ def get_mask_from_patches(mask, fixed, moving, ref_transform, grid_size, thresho
     return sitk.GetImageFromArray(mask_np)
 
 
+# def build_volume_from_tracked_slices_claude(
+#     frames: np.ndarray,
+#     poses: np.ndarray,
+#     slice_thickness: float = 1,
+#     interpolator: int = sitk.sitkLinear,
+#     fill_holes: bool = True,
+#     max_hole_fill_iterations: int = 50,
+# ) -> sitk.Image:
+#     """
+#     Baut aus 2D-Frames mit bekannter Pose ein 3D-Volumen (SimpleITK Image).
+ 
+#     Konvention (an eigene Daten anpassen, falls abweichend!):
+#     - frames[i]: 2D-Graustufenbild der Form (H, W).
+#     - poses[i]: 4x4 homogene Rigid-Transformationsmatrix, die einen Punkt im
+#       lokalen Bildkoordinatensystem (mm, Ursprung = Pixel (0,0), x-Achse
+#       entlang der Spalten, y-Achse entlang der Zeilen, z=0-Ebene) auf den
+#       Punkt im Welt-/Tracker-Koordinatensystem (mm) abbildet.
+#       -> poses[i] = "ImageToWorld"-Transform zum Aufnahmezeitpunkt von frames[i].
+#     - pixel_spacing = (sx, sy): physikalische Pixelgroesse in mm, fuer alle
+#       Frames gleich angenommen.
+#     - fill_holes: wenn True (Default), werden vollstaendig umschlossene
+#       Luecken zwischen Slices mit dem Wert des naechstgelegenen befuellten
+#       Nachbar-Voxels aufgefuellt. Bereiche ausserhalb des tatsaechlich
+#       gescannten Volumens (die den Rand des Zielrasters beruehren) bleiben
+#       immer 0. Achtung: das einfache Auffuellverfahren geht von nicht-
+#       negativen Intensitaeten aus (z.B. 0-255); bei Bilddaten mit negativen
+#       Werten (z.B. rohe CT-Hounsfield-Units) bitte fill_holes=False setzen
+#       und selbst behandeln.
+#     - max_hole_fill_iterations: Sicherheitsobergrenze fuer die Anzahl der
+#       Auffuell-Iterationen (jede Iteration wächst die Werte um 1 Voxel).
+ 
+#     Rueckgabe:
+#         sitk.Image (Float32, 3D, achsparallel), das rekonstruierte Volumen.
+#         Wo kein Frame Daten beigesteuert hat, ist der Voxelwert 0.
+ 
+#     Hinweis: einfache Pixel-/Voxel-Compounding-Rekonstruktion (Mittelung
+#     ueberlappender Beitraege). Fuer produktionsreife Freehand-3D-Rekon-
+#     struktion mit besserer Loch-/Kantenbehandlung siehe z.B. das PLUS Toolkit.
+#     """
+#     frames = np.asarray(frames)
+#     poses = np.asarray(poses)
+ 
+#     if frames.ndim != 3:
+#         raise ValueError("frames muss die Form (N, H, W) haben (Graustufen).")
+#     if poses.shape[-2:] != (4, 4):
+#         raise ValueError("poses muss die Form (N, 4, 4) haben (homogene 4x4-Matrizen).")
+#     if frames.shape[0] != poses.shape[0]:
+#         raise ValueError("frames und poses muessen gleich viele Eintraege (N) haben.")
+ 
+#     n_frames, h, w = frames.shape
+#     sx, sy = (SPACING_X, SPACING_Y)
+ 
+#     # Ziel-Voxelgroesse: falls nicht vorgegeben, kleinste Pixelkante nutzen
+#     output_spacing = min(sx, sy)
+ 
+#     # Dicke, mit der jeder Frame als duenne 3D-Scheibe eingebettet wird.
+#     # In Groessenordnung des Ausgabe-Spacings waehlen, damit beim Resampling
+#     # ins Zielraster garantiert mindestens eine Voxelschicht getroffen wird
+#     # (sonst kann die unendlich duenne Ebene "durchs Raster fallen").
+#     if slice_thickness is None:
+#         slice_thickness = output_spacing
+ 
+#     # --- Schritt 1: jeden Frame als duennes 3D-Bild im Weltraum platzieren --
+#     slice_images = []
+#     for i in range(n_frames):
+#         # numpy (H, W) -> sitk erwartet fuer 3D-Arrays Achsreihenfolge (z,y,x)
+#         arr = frames[i].astype(np.float32)[np.newaxis, :, :]  # (1, H, W)
+#         img = sitk.GetImageFromArray(arr)  # resultierende sitk-Groesse: (W, H, 1)
+#         img.SetSpacing((sx, sy, slice_thickness))
+ 
+#         rotation = poses[i][:3, :3]
+#         translation = poses[i][:3, 3]
+ 
+#         # Rotationsteil orthonormalisieren (robust gegen kleines numerisches
+#         # Rauschen in den Pose-Daten) -> gueltige Direction-Matrix fuer sitk.
+#         u, _, vt = np.linalg.svd(rotation)
+#         rotation_orthonormal = u @ vt
+ 
+#         img.SetDirection(rotation_orthonormal.flatten().tolist())
+#         img.SetOrigin(translation.tolist())
+#         slice_images.append(img)
+ 
+#     # --- Schritt 2: Bounding Box aller Frames im Weltkoordinatensystem -----
+#     # Eckpunkte jedes Frames (lokale mm-Koordinaten) mit der jeweiligen Pose
+#     # ins Weltsystem transformieren und min/max je Achse sammeln.
+#     corners_local = np.array([
+#         [0, 0, 0],
+#         [w * sx, 0, 0],
+#         [0, h * sy, 0],
+#         [w * sx, h * sy, 0],
+#     ])
+#     world_min = np.full(3, np.inf)
+#     world_max = np.full(3, -np.inf)
+#     for i in range(n_frames):
+#         R = poses[i][:3, :3]
+#         t = poses[i][:3, 3]
+#         world_corners = corners_local @ R.T + t
+#         world_min = np.minimum(world_min, world_corners.min(axis=0))
+#         world_max = np.maximum(world_max, world_corners.max(axis=0))
+ 
+#     # --- Schritt 3: leeres, achsparalleles Ziel-Volumen anlegen ------------
+#     size = np.ceil((world_max - world_min) / output_spacing).astype(int) + 1
+#     size = tuple(int(s) for s in size)
+ 
+#     reference = sitk.Image(size, sitk.sitkFloat32)
+#     reference.SetSpacing((output_spacing,) * 3)
+#     reference.SetOrigin(world_min.tolist())
+#     # Direction bleibt Identitaet -> Volumen liegt achsparallel im Weltsystem
+ 
+#     identity_transform = sitk.Transform(3, sitk.sitkIdentity)
+ 
+#     # --- Schritt 4: Compounding - jeden Frame ins Zielraster resamplen -----
+#     # sum_image:  Summe der Intensitaeten je Zielvoxel
+#     # sum_weight: Anzahl/Gewicht der Beitraege je Zielvoxel (fuer Mittelung
+#     #             und um zu wissen, wo ueberhaupt Daten vorhanden sind)
+#     sum_image = sitk.Image(size, sitk.sitkFloat32)
+#     sum_image.CopyInformation(reference)
+#     sum_weight = sitk.Image(size, sitk.sitkFloat32)
+#     sum_weight.CopyInformation(reference)
+ 
+#     for slice_img in slice_images:
+#         resampled = sitk.Resample(
+#             slice_img, reference, identity_transform, interpolator, 0.0, sitk.sitkFloat32
+#         )
+#         # Gewichtsbild: gleiche Geometrie wie slice_img, aber ueberall 1.
+#         # Nach dem Resampling zeigt es, wo dieser Frame im Zielraster
+#         # tatsaechlich Daten beigetragen hat.
+#         weight_img = sitk.Image(slice_img.GetSize(), sitk.sitkFloat32)
+#         weight_img.CopyInformation(slice_img)
+#         weight_img += 1.0
+#         resampled_weight = sitk.Resample(
+#             weight_img, reference, identity_transform, interpolator, 0.0, sitk.sitkFloat32
+#         )
+ 
+#         sum_image += resampled
+#         sum_weight += resampled_weight
+ 
+#     # --- Schritt 5: Mittelung, Division durch 0 vermeiden -------------------
+#     safe_weight = sitk.Maximum(sum_weight, 1e-6)
+#     volume = sitk.Divide(sum_image, safe_weight)
+#     # Sicherheitshalber Bereiche ohne jeglichen Beitrag explizit auf 0 setzen
+#     has_data_mask = sitk.Cast(sum_weight > 0, sitk.sitkUInt8)
+#     volume = sitk.Mask(volume, has_data_mask)
+ 
+#     # --- Schritt 6 (optional): umschlossene Luecken auffuellen -------------
+#     if fill_holes:
+#         volume = _fill_interior_holes(volume, has_data_mask, max_hole_fill_iterations)
+ 
+#     return volume
+ 
+ 
 def _fill_interior_holes(
     volume: sitk.Image, has_data_mask: sitk.Image, max_iterations: int = 5
 ) -> sitk.Image:

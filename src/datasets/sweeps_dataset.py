@@ -366,4 +366,3 @@ if __name__ == "__main__":
     dataset = SweepsDataset(
         default_csv_path, "train"
     )
-    print(dataset[0])

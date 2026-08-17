@@ -6,7 +6,7 @@ model:
     max_seq_length: 4096
     features_only: true
   local_encoder_cfg:
-    name: dualtrack_loc_enc_stg3_legacy
+    name: dualtrack_loc_enc_stg3_legacy # fusion_model.py
     backbone_cfg:
       max_subsequence_size: 1024
     max_position_embeddings: 4096

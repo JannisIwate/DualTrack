@@ -413,7 +413,7 @@ def run_full_test_loop(
                 print(f"{key}: {len(value)}")
             elif isinstance(value, torch.Tensor):
                 print(f"{key}: {value.shape}")
-        breakpoint()
+        # breakpoint()
         # Filter by sweep IDs if specified
         if sweep_ids is not None:
             if not list(

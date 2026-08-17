@@ -31,6 +31,8 @@ def cal_global_allpts(transformation_global, tform_calib_scale, image_points):
 
     return global_allpts_DDF
 
+# matrix, row, column
+
 
 def cal_global_landmark(transformation_global, landmark, tform_calib_scale):
     """

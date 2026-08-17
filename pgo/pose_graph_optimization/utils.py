@@ -24,7 +24,7 @@ def mat4_to_pose3(T: np.ndarray) -> gtsam.Pose3:
     return gtsam.Pose3(R, t)
 
 
-def compute_inbetween_transforms(acc_transforms: np.ndarray) -> np.ndarray:
+def accumulated_to_inbetween(acc_transforms: np.ndarray) -> np.ndarray:
 
     n = acc_transforms.shape[0]
 
@@ -70,9 +70,9 @@ def accumulate(inbetween_transforms: np.ndarray) -> np.ndarray:
 
 def inbetween_to_accumulated(inbetween_transforms: np.ndarray) -> np.ndarray:
 
-    accumulated = [np.eye(4)]
+    accumulated = [inbetween_transforms[0]]
 
-    for i in range(len(inbetween_transforms)):
+    for i in range(1, len(inbetween_transforms)):
         accumulated.append(accumulated[-1] @ inbetween_transforms[i])
 
     return np.stack(accumulated)

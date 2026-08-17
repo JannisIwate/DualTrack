@@ -63,7 +63,7 @@ cd "$WORKDIR" || exit 1
 ### DualTrack24
 
 ## test
-DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24_broken.pt python evaluate.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/test --overwrite_log_dir --save_predictions 
+# DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24_broken.pt python evaluate.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/test --overwrite_log_dir --save_predictions 
 #DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/model/dualtrack_tusrec24.pt python evaluate.py -c /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/dualtrack_evaluation_jannis/dualtrack_final_25_data.yaml --log_dir /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/test_25 --save_predictions  --overwrite_log_dir
 # -> around 1500 frames per scan for 25, 400 for 24
 
@@ -76,7 +76,7 @@ DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualT
 # transformer: default (local_encoder_transform)
 # extras: /
 
-#DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run --overwrite_log_dir --save_predictions 
+# DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run --overwrite_log_dir --save_predictions 
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_original
 # -> performance from repo/paper recreated (avg gpe of 4.9mm)
@@ -108,7 +108,7 @@ DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualT
 # transformer: default (local_encoder_transform)
 # extras: filtering of first null drift value, deletion of var values in loop after use
 
-#DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/configs/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final_25_data.yaml --log_dir experiment/dualtrack_24/tusrec_25_val/run_1 --overwrite_log_dir --save_predictions
+DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final_25_data.yaml --log_dir experiment/dualtrack_24/tusrec_25_val/run_1 --overwrite_log_dir --save_predictions
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_25_data
 # -> extremely bad results (avg fdr of 488.77%, avg gpe of 56.53mm)

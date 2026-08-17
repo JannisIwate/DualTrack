@@ -157,6 +157,7 @@ class PoseGraph:
 
         optimizer_name = self.optimizer_name.lower()
 
+        #  TODO: ISAM2 ausprobieren
         if optimizer_name == "gauss-newton":
 
             params = gtsam.GaussNewtonParams()

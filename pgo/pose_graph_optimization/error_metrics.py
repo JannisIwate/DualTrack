@@ -59,7 +59,7 @@ def save_results(
     try:
         shutil.rmtree(output_dir)
     except FileNotFoundError:
-        print("Directory not found.")
+        print("Directory not found, creating new.")
 
     os.makedirs(output_dir, exist_ok=True)
 

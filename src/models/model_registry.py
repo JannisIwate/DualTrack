@@ -90,6 +90,11 @@ def get_model(
 
     model = _MODELS[name](**kwargs)
 
+    # Copilot
+    # for name, param in model.named_parameters():
+    #     if param.ndim > 0:
+    #         param.data.fill_(2.0)  
+
     if checkpoint:
         if checkpoint in _REGISTERED_CHECKPOINTS:
             checkpoint = _REGISTERED_CHECKPOINTS[checkpoint](**checkpoint_kw)

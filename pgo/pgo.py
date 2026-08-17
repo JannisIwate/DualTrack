@@ -18,11 +18,11 @@ sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
 from pose_graph_optimization.graph import *
 from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
-from pose_graph_optimization.loop_closure import detect_loop_closures
-from pose_graph_optimization.image_registration import register_2d, register_3d, sample_pairs_by_step, sample_sliding_windows
-from error_evals import estimate_gt
-from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings, plot_pose_differences, pose_vector_to_matrix, matrix_to_pose_vector
-from src.evaluator import plot_pose_differences
+from pose_graph_optimization.loop_closure import *
+from pose_graph_optimization.image_registration import *
+from error_evals import *
+from src.utils.pose import *
+from src.evaluator import *
 
 
 def parse_arguments():
@@ -253,7 +253,7 @@ def load_scan_data(input_pred: str, el: str, sweep_index: int, config):
         else:
 
             gt_acc = np.array(f["gt_tracking"][:nr_of_frames])
-            gt_inbetween = compute_inbetween_transforms(gt_acc)
+            gt_inbetween = accumulated_to_inbetween(gt_acc)
 
         calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
         fvs = np.array(f["fvs"])
@@ -279,7 +279,7 @@ def init_pose_graph(pred_acc: np.ndarray, pred_inbetween: np.ndarray, flags: dic
 
         pred_inbetween = linear_approximation(pred_inbetween, 0.9, 0.8)
         # pred_inbetween = estimate_gt(pred_inbetween)
-        pred_acc = inbetween_to_accumulated(pred_inbetween[1:])
+        pred_acc = inbetween_to_accumulated(pred_inbetween)
         # -> doesn't help as worsening outweighs improvement
 
     pred_graph = PoseGraph(poses=pred_acc, constraints=pred_inbetween, initial_pose=pred_acc[0])
@@ -470,7 +470,7 @@ def register_volumes(
 
     # Reference transforms are used by default.
     # Only frames that become the centre of a window are overwritten.
-    ir_transforms = np.copy(pred_inbetween)
+    ir_transforms = np.copy(pred_acc)
     window_size = windows.shape[1]
     half_window = window_size // 2
     first_registered = first_window_start + half_window
@@ -480,6 +480,7 @@ def register_volumes(
         start_time = time.time()
         ref_idx_start = first_window_start + i
         ref_idx_end = ref_idx_start + window_size
+        print(f"Registering window {i + 1}: frames {ref_idx_start}-{ref_idx_end - 1}")
 
         (
             ir_transform,
@@ -502,11 +503,17 @@ def register_volumes(
         ir_metrics["metric_after"].append(m_after)
         ir_metrics["ir_execution_time"].append(time.time() - start_time)
 
-        centre_idx = first_registered + i
+        center_idx = first_registered + i
 
-        ir_transforms[centre_idx] = ir_transform
+        if cfg_has(config, "image_registration.sitk.options") and \
+        "replace_pred" in cfg_get(config, "image_registration.sitk.options"):
 
-    return ir_metrics, ir_transforms, counter
+            pred_acc[center_idx] = ir_transform
+
+        ir_transforms[center_idx] = ir_transform
+        print("registered a frame")
+
+    return ir_metrics, accumulated_to_inbetween(ir_transforms), counter
 
 
 def create_ir_scan_plots(sweep_name, ir_ref, ir_gt, ir_transforms, config, figs_individual):
@@ -528,7 +535,7 @@ def create_ir_scan_plots(sweep_name, ir_ref, ir_gt, ir_transforms, config, figs_
 
     if "plot_ir_trajectories" in plot_cfg:
 
-        figs["ir_trajectories_gt_ref_ir"] = plot_trajectories([extract_positions(inbetween_to_accumulated(t[1:])) for t in (ir_gt, ir_ref, ir_transforms)],
+        figs["ir_trajectories_gt_ref_ir"] = plot_trajectories([extract_positions(inbetween_to_accumulated(t)) for t in (ir_gt, ir_ref, ir_transforms)],
                                                               labels=["GT", "Initial estimated", "IR"],
                                                               colors=["blue", "red", "black"])
         plt.close()
@@ -568,11 +575,9 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
         WINDOW_SIZE = cfg_get(config, "image_registration.window_size")
         if WINDOW_SIZE is None:
             WINDOW_SIZE = 11
-        pred_inbetween = inbetween_to_accumulated(pred_acc[1:]) # skip first identity)
-        gt_inbetween = inbetween_to_accumulated(gt_acc[1:]) # skip first identity)
+        pred_inbetween = accumulated_to_inbetween(pred_acc)
+        gt_inbetween = accumulated_to_inbetween(gt_acc)
         windows, start = sample_sliding_windows(frames, WINDOW_SIZE) # shape (438, 10, 4, 4)
-        # print(windows.shape)
-        # breakpoint()
 
         ir_ref = pred_inbetween
         ir_gt = gt_inbetween
@@ -600,13 +605,13 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
                          config,
                          ir["figs_individual"])
 
-    ir_transforms_acc = inbetween_to_accumulated(ir_transforms[1:])
-    ir_gt_acc = inbetween_to_accumulated(ir_gt[1:])
+    ir_transforms_acc = inbetween_to_accumulated(ir_transforms)
+    ir_gt_acc = inbetween_to_accumulated(ir_gt)
 
     ir["metrics"] = ir_metrics
-    ir["transforms"]["ir_transforms"].append(ir_transforms[1:])
-    ir["transforms"]["ir_gt_transforms"].append(ir_gt[1:])
-    ir["transforms"]["ir_ref_transforms"].append(ir_ref[1:])
+    ir["transforms"]["ir_transforms"].append(ir_transforms)
+    ir["transforms"]["ir_gt_transforms"].append(ir_gt)
+    ir["transforms"]["ir_ref_transforms"].append(ir_ref)
     ir["drift_metrics_after_ir"].append(get_drift_metrics(ir_gt_acc, ir_transforms_acc))
     ir["ddf_metrics_after_ir"].append(get_ddf_metrics(
         ir_transforms_acc, ir_transforms, ir_gt_acc, ir_gt,
@@ -695,7 +700,7 @@ def compute_pgo_scan_metrics(scan, pred_acc, pred_inbetween, results, execute_pg
 
     pgo["drift_metrics_after_pgo"].append(get_drift_metrics(gt_acc, optimized_pred))
     pgo["ddf_metrics_after_pgo"].append(get_ddf_metrics(optimized_pred,
-                                                        compute_inbetween_transforms(optimized_pred),
+                                                        accumulated_to_inbetween(optimized_pred),
                                                         gt_acc,
                                                         scan["gt_inbetween"],
                                                         calib,
@@ -787,6 +792,7 @@ def main():
         # IR
         if cfg_has(config, "image_registration"):
 
+            start = time.time()
             (counter,
              ir_transforms,
              idc1,
@@ -796,6 +802,8 @@ def main():
                                                    config,
                                                    results,
                                                    counter=counter)
+            print(f"total global: {time.time() - start}")
+            # breakpoint()
 
             # add IR contraints
             if flags["pgo"]:

@@ -20,7 +20,7 @@ from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import detect_loop_closures
 from pose_graph_optimization.image_registration import  register_2d
-from pose_graph_optimization.sitk import sample_pairs_by_step
+from pgo.pose_graph_optimization.sitk_old import sample_pairs_by_step
 from src.utils.pose import get_drift_metrics, get_ddf_metrics, get_global_and_relative_gt_trackings, plot_pose_differences, pose_vector_to_matrix, matrix_to_pose_vector
 from src.evaluator import plot_pose_differences
 
@@ -139,7 +139,7 @@ def main():
                     # gt_inbetween is Ti->j, forward
             else:
                 gt_acc = np.array(f["gt_tracking"][:nr_of_frames]) # same here as above, transforms already normalized
-                gt_inbetween = compute_inbetween_transforms(gt_acc)
+                gt_inbetween = accumulated_to_inbetween(gt_acc)
 
             # load auxiliary data
             calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
@@ -398,7 +398,7 @@ def main():
 
             ddf_metrics_optimized_vs_gt = get_ddf_metrics(
                 optimized_pred,
-                compute_inbetween_transforms(optimized_pred),
+                accumulated_to_inbetween(optimized_pred),
                 gt_acc,
                 gt_inbetween,
                 calibration_matrix,

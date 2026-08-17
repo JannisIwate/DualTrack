@@ -105,12 +105,12 @@ def register_3d(window: np.ndarray,
     center = window_size // 2
 
     volume_frames = np.delete(window, center, axis=0)
-    volume_poses = np.delete(pred_acc, center, axis=0)
+    volume_poses = np.delete(pred_acc, center, axis=0) @ np.transpose(pred_acc[0]) # normalize by first pose to make relative
 
     slice_frame = window[center]
-    slice_frame_pose = pred_acc[center]
-    slice_frame_pose_gt = gt_acc[center]
-
+    slice_frame_pose = pred_acc[center] @ np.transpose(pred_acc[0])
+    slice_frame_pose_gt = gt_acc[center] @ np.transpose(pred_acc[0])
+    print(pred_acc[0])
     (
         T_reg,
         metric_before_forward,
@@ -127,14 +127,11 @@ def register_3d(window: np.ndarray,
     )
 
     # compute relative pose
-    T_reg = np.linalg.inv(pred_acc[center - 1]) @ T_reg
-    T_ref = np.linalg.inv(pred_acc[center - 1]) @ slice_frame_pose
-    # print(T_reg)
-    # print(T_ref)
-    # breakpoint()
+    T_reg = np.linalg.inv(pred_acc[0]) @ T_reg
+    T_ref = np.linalg.inv(pred_acc[0]) @ slice_frame_pose
 
     return (
-        T_ref,
+        T_reg,
         metric_before_forward,
         metric_before_gt_forward,
         metric_before_pred_forward,

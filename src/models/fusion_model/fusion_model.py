@@ -249,7 +249,8 @@ def dualtrack_fusion_model(
         **kwargs,
     )
 
-
+# manuell eingestellter dualtrack_loc_enc_stg3_legacy, damit es keine Doppeltinit gibt durch dualtrack_final_25_data.yaml config
+# bekommt zu wenig Gewichte, da Extraparameter Architektur aendern
 @register_model
 def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
     model = dualtrack_fusion_model(
@@ -266,3 +267,22 @@ def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
         print(f"Loaded pretrained weights from {path} with message: {msg}")
 
     return model
+
+# original
+# -> auf 24 Daten mit default config klappt es, alle Gewichte da
+# @register_model
+# def dualtrack_tus_rec_2024(pretrained=True, **kwargs):
+#     model = dualtrack_fusion_model(
+#         local_encoder_cfg=dict(name="dualtrack_loc_enc_stg3_legacy"), **kwargs
+#     )
+#     if pretrained: 
+#         path = os.getenv(
+#             "DUALTRACK_FINAL_CHECKPOINT_PATH"
+#         ) or 'data/checkpoints/dualtrack_final.pt'
+
+#         msg = load_model_weights(
+#             model, path, strict=False,
+#         )
+#         print(f"Loaded pretrained weights from {path} with message: {msg}")
+
+#     return model 

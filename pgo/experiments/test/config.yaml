@@ -10,7 +10,7 @@ general:
     # - la_replace
   # ref_values_sigma: 1e-1
   nr_scans: 1
-  nr_frames: 11
+  # nr_frames: 11
   # start_scan: 1 # counting from 1
 
 image_registration:
@@ -21,12 +21,13 @@ image_registration:
   sitk:
     metric: "mi"
     optimizer: "gradient"
-    transform_type: "euler" # or "affine" or "euler"
+    transform_type: "versor" # "affine", "euler" or "versor"
     options:
       # - cross_check
       # - multi_resolution
-      # - use_center
+      - use_center
       # - patch_mask
+      # - replace_pred
 
 plot:
   - plot_ir_error_magnitudes
