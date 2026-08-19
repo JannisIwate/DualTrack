@@ -481,7 +481,6 @@ def register_volumes(
         ref_idx_start = first_window_start + i
         ref_idx_end = ref_idx_start + window_size
         print(f"Registering window {i + 1}: frames {ref_idx_start}-{ref_idx_end - 1}")
-
         (
             ir_transform,
             m_before_id,

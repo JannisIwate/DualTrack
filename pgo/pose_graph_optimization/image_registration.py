@@ -110,7 +110,6 @@ def register_3d(window: np.ndarray,
     slice_frame = window[center]
     slice_frame_pose = pred_acc[center] @ np.transpose(pred_acc[0])
     slice_frame_pose_gt = gt_acc[center] @ np.transpose(pred_acc[0])
-    print(pred_acc[0])
     (
         T_reg,
         metric_before_forward,
