@@ -105,11 +105,14 @@ def register_3d(window: np.ndarray,
     center = window_size // 2
 
     volume_frames = np.delete(window, center, axis=0)
-    volume_poses = np.delete(pred_acc, center, axis=0) @ np.transpose(pred_acc[0]) # normalize by first pose to make relative
+    pred_first_inverse = np.linalg.inv(pred_acc[0])
+    gt_first_inverse = np.linalg.inv(gt_acc[0])
+
+    volume_poses = np.delete(pred_acc, center, axis=0) @ pred_first_inverse # normalize by first pose to make relative
 
     slice_frame = window[center]
-    slice_frame_pose = pred_acc[center] @ np.transpose(pred_acc[0])
-    slice_frame_pose_gt = gt_acc[center] @ np.transpose(pred_acc[0])
+    slice_frame_pose = pred_acc[center] @ pred_first_inverse
+    slice_frame_pose_gt = gt_acc[center] @ gt_first_inverse
     (
         T_reg,
         metric_before_forward,
@@ -125,12 +128,11 @@ def register_3d(window: np.ndarray,
         **sitk_cfg,
     )
 
-    # compute relative pose
-    T_reg = np.linalg.inv(pred_acc[0]) @ T_reg
-    T_ref = np.linalg.inv(pred_acc[0]) @ slice_frame_pose
+    # compute global pose
+    T_reg_global = pred_acc[0] @ T_reg
 
     return (
-        T_reg,
+        T_reg_global,
         metric_before_forward,
         metric_before_gt_forward,
         metric_before_pred_forward,

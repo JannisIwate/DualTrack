@@ -1,505 +1,276 @@
+import argparse
 import os
+from pathlib import Path
 import sys
+
 import h5py
-import numpy as np
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 from itertools import islice
-from scipy.stats import linregress
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from omegaconf import OmegaConf
+from scipy.stats import linregress, probplot
 
 sys.path.append(os.getcwd())
 sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
 [sys.path.append(i) for i in [".", ".."]]
 
-from pose_graph_optimization.utils import *
 from src.utils.pose import (
     get_global_and_relative_gt_trackings,
     matrix_to_pose_vector,
-    pose_vector_to_matrix
+    pose_vector_to_matrix,
 )
-
 
 LABELS = ["Tx", "Ty", "Tz", "Rx", "Ry", "Rz"]
 
 
-def load_all_relative_trackings(input_pred_path, input_gt_path, nr_of_scans=None, start=1):
+def load_array(path, dataset=None):
+    path = Path(path)
+    if path.suffix == ".npy":
+        return np.load(path)
+    if path.suffix == ".npz":
+        data = np.load(path)
+        key = dataset or data.files[0]
+        return data[key]
+    if path.suffix in {".h5", ".hdf5"}:
+        with h5py.File(path, "r") as handle:
+            if dataset is None:
+                dataset = next(key for key in handle if isinstance(handle[key], h5py.Dataset))
+            return np.asarray(handle[dataset])
+    raise ValueError(f"Unsupported pose-array file: {path}")
 
+
+def load_all_relative_trackings(input_pred_path, input_gt_path, nr_of_scans=None, start=1):
     data = os.listdir(input_pred_path)
     data = islice(data, start - 1, start + nr_of_scans - 1) if nr_of_scans is not None else data
 
     pred_inbetween_all = []
     gt_inbetween_all = []
 
-    for i, el in enumerate(tqdm(data, desc="Loading scans", total=nr_of_scans)):
-
+    for el in data:
         sweep_path = os.path.join(input_pred_path, el, "export.h5")
         if not os.path.isfile(sweep_path):
             continue
 
         with h5py.File(sweep_path, "r") as f_pred:
-
             nr_of_frames = len(f_pred["images"])
-
             pred_inbetween = np.array(f_pred["pred_tracking_loc"][:nr_of_frames])
 
         gt_file = os.path.join(input_gt_path, f"{el}.h5")
-
         with h5py.File(gt_file, "r") as f_gt:
-
             gt = np.array(f_gt["tracking"][:nr_of_frames])
             _, gt_inbetween = get_global_and_relative_gt_trackings(gt)
 
         pred_inbetween_all.append(pred_inbetween)
         gt_inbetween_all.append(gt_inbetween)
 
-    pred_inbetween_all = np.concatenate(pred_inbetween_all, axis=0)
-    gt_inbetween_all = np.concatenate(gt_inbetween_all, axis=0)
+    if not pred_inbetween_all:
+        raise ValueError(f"No scan data found in {input_pred_path}")
 
-    return pred_inbetween_all, gt_inbetween_all
+    return np.concatenate(pred_inbetween_all, axis=0), np.concatenate(gt_inbetween_all, axis=0)
 
 
-def compute_pose_statistics(pred, gt):
-
-    pred_tracking = np.stack([matrix_to_pose_vector(T) for T in pred])
-    gt_tracking = np.stack([matrix_to_pose_vector(T) for T in gt])
-
-    errors_real = pred_tracking - gt_tracking
-    errors_abs = np.abs(errors_real)
-
-    stats = {
-        "pred_tracking": pred_tracking,
-        "gt_tracking": gt_tracking,
-        "errors_real": errors_real,
-        "errors_abs": errors_abs,
-        "mean_gt": gt_tracking.mean(axis=0),
-        "mean_pred": pred_tracking.mean(axis=0),
-        "mean_gt_abs": np.abs(gt_tracking).mean(axis=0),
-        "mean_pred_abs": np.abs(pred_tracking).mean(axis=0),
-        "mean_abs_error": errors_abs.mean(axis=0),
-        "mean_signed_error": errors_real.mean(axis=0),
-        "std_error": errors_real.std(axis=0),
+def compute_pose_statistics(first, second):
+    first_vectors = np.stack([matrix_to_pose_vector(pose) for pose in first])
+    second_vectors = np.stack([matrix_to_pose_vector(pose) for pose in second])
+    signed_error = first_vectors - second_vectors
+    absolute_error = np.abs(signed_error)
+    return {
+        "first": first_vectors,
+        "second": second_vectors,
+        "errors_real": signed_error,
+        "errors_abs": absolute_error,
+        "mean_second": second_vectors.mean(axis=0),
+        "mean_first": first_vectors.mean(axis=0),
+        "mean_second_abs": np.abs(second_vectors).mean(axis=0),
+        "mean_first_abs": np.abs(first_vectors).mean(axis=0),
+        "mean_abs_error": absolute_error.mean(axis=0),
+        "mean_signed_error": signed_error.mean(axis=0),
+        "std_error": signed_error.std(axis=0),
     }
-
-    return stats
 
 
 def print_statistics(stats):
+    lines = ["=== Error statistics ==="]
+    for index, label in enumerate(LABELS):
+        lines.extend([
+            f"{label}:",
+            f"  Mean second   : {stats['mean_second'][index]:.4f}",
+            f"  Mean first    : {stats['mean_first'][index]:.4f}",
+            f"  Mean second abs: {stats['mean_second_abs'][index]:.4f}",
+            f"  Mean first abs: {stats['mean_first_abs'][index]:.4f}",
+            f"  MAE           : {stats['mean_abs_error'][index]:.4f}",
+            f"  Mean error    : {stats['mean_signed_error'][index]:.4f}",
+            f"  Std deviation : {stats['std_error'][index]:.4f}",
+        ])
+    return "\n".join(lines)
 
-    print("=== Error statistics ===")
 
-    for i, label in enumerate(LABELS):
-        print(f"{label}:")
-        print(f"  Mean GT       : {stats['mean_gt'][i]:.4f}")
-        print(f"  Mean pred     : {stats['mean_pred'][i]:.4f}")
-        print(f"  Mean GT abs   : {stats['mean_gt_abs'][i]:.4f}")
-        print(f"  Mean pred abs : {stats['mean_pred_abs'][i]:.4f}")
-        print(f"  MAE           : {stats['mean_abs_error'][i]:.4f}")
-        print(f"  Mean error    : {stats['mean_signed_error'][i]:.4f}")
-        print(f"  Std deviation : {stats['std_error'][i]:.4f}")
-        print()
-
-
-
-def plot_error_histograms(stats, bins=60):
-
-    errors_real = stats["errors_real"]
-
-    fig, ax = plt.subplots(2, 3, figsize=(12, 6))
-
-    for i in range(6):
-        ax_ = ax.flatten()[i]
-        ax_.hist(errors_real[:, i], bins=bins)
-        ax_.set_title(LABELS[i])
-        ax_.set_xlabel("Error")
-        ax_.set_ylabel("Count")
-
+def error_histograms(stats, bins):
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6))
+    for index, axis in enumerate(axes.flat):
+        axis.hist(stats["errors_real"][:, index], bins=bins)
+        axis.set_title(LABELS[index])
+        axis.set_xlabel("Error")
+        axis.set_ylabel("Count")
     fig.tight_layout()
-    fig.canvas.manager.set_window_title("Error histograms")
+    return fig
 
 
-def plot_qq_plots(stats):
-
-    import scipy.stats as scipy_stats
-
-    errors_real = stats["errors_real"]
-
-    fig, ax = plt.subplots(2, 3, figsize=(12, 6))
-
-    for i in range(6):
-        scipy_stats.probplot(errors_real[:, i], dist="norm", plot=ax.flatten()[i])
-        ax.flatten()[i].set_title(LABELS[i])
-    # sortiere Punkte, weise jedem Punkt ein Quantil zu, berechne Idealverteilung anhand von Standardabweichung und Mittelwert, plotte Idealquantile und tatsaechliche Werte
-
+def qq_plots(stats):
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6))
+    for index, axis in enumerate(axes.flat):
+        probplot(stats["errors_real"][:, index], dist="norm", plot=axis)
+        axis.set_title(LABELS[index])
     fig.tight_layout()
-    fig.canvas.manager.set_window_title("QQ plots error")
+    return fig
 
 
-def get_largest_error_indices(stats, quantile=0.95):
-
+def largest_error_indices(stats, quantile):
     errors_abs = stats["errors_abs"]
-
     thresholds = np.quantile(errors_abs, quantile, axis=0)
-
-    largest_indices = [
-        np.where(errors_abs[:, i] >= thresholds[i])[0]
-        for i in range(6)
-    ]
-
-    return largest_indices, thresholds
+    indices = [np.where(errors_abs[:, index] >= thresholds[index])[0] for index in range(6)]
+    lines = [f"=== Largest errors at quantile {quantile:.3f} ==="]
+    for label, threshold, values in zip(LABELS, thresholds, indices):
+        lines.append(f"{label}: threshold={threshold:.6f}, count={len(values)}")
+    return indices, "\n".join(lines)
 
 
-def plot_values(values, indices=None, labels=None, title="Values"):
-
-    fig, ax = plt.subplots(2, 3, figsize=(12, 6))
-
-    for i in range(6):
-        ax_ = ax.flatten()[i]
-
-        if indices is not None:
-            idx = indices[i]
-        else:
-            idx = range(values[0].shape[0]-1)
-
-        for value_set, label in zip(values, labels):
-            ax_.plot(value_set[idx, i], label=label, alpha=0.8)
-
-        ax_.set_title(LABELS[i])
-        ax_.set_xlabel("Selected sample index")
-
-    ax.flatten()[-1].legend()
-
+def values_plot(stats, indices):
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6))
+    for index, axis in enumerate(axes.flat):
+        selected = indices[index] if indices is not None else np.arange(len(stats["first"]))
+        axis.plot(selected, stats["first"][selected, index], label="first")
+        axis.plot(selected, stats["second"][selected, index], label="second")
+        axis.set_title(LABELS[index])
+        axis.set_xlabel("Sample index")
+    axes.flat[-1].legend()
     fig.tight_layout()
-    fig.canvas.manager.set_window_title(title)
+    return fig
 
 
-def plot_bias(stats):
-
-    gt_tracking = stats["gt_tracking"]
-    errors_real = stats["errors_real"]
-    pred_tracking = stats["pred_tracking"]
-
-    x_label = "GT"
-    y_label = "Pred - GT"
-
-    fig, ax = plt.subplots(2, 3, figsize=(12, 6))
-
-    for i in range(6):
-
-        # x = abs(gt_tracking)[:, i]
-        # y = abs(errors_real)[:, i]
-        x = gt_tracking[:, i]
-        y = errors_real[:, i]
-        
+def bias_plot(stats):
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6))
+    lines = ["=== Bias statistics ==="]
+    for index, axis in enumerate(axes.flat):
+        x = stats["second"][:, index]
+        y = stats["errors_real"][:, index]
         result = linregress(x, y)
-
         x_line = np.linspace(x.min(), x.max(), 100)
-
-        ax_ = ax.flatten()[i]
-
-        ax_.scatter(x, y, s=5, alpha=0.5)
-        ax_.axhline(0, color="red", linestyle="--")
-
-        ax_.plot(x_line, result.slope * x_line + result.intercept, color="orange")
-
-        corr = np.corrcoef(x, y)[0, 1]
-
-        ax_.set_title(f"{LABELS[i]} (corr={corr:.2f})")
-        ax_.set_xlabel(x_label)
-        ax_.set_ylabel(y_label)
-
-        print(f"DOF {i}")
-        print(f"  slope     = {result.slope:.6f}")
-        print(f"  intercept = {result.intercept:.6f}")
-        print(f"  R²        = {result.rvalue**2:.3f}")
-        print()
-
+        axis.scatter(x, y, s=5, alpha=0.5)
+        axis.axhline(0, color="red", linestyle="--")
+        axis.plot(x_line, result.slope * x_line + result.intercept, color="orange")
+        axis.set_title(f"{LABELS[index]} (corr={np.corrcoef(x, y)[0, 1]:.2f})")
+        axis.set_xlabel("Second")
+        axis.set_ylabel("First - Second")
+        lines.append(f"{LABELS[index]}: slope={result.slope:.6f}, intercept={result.intercept:.6f}, R2={result.rvalue ** 2:.3f}")
     fig.tight_layout()
-    fig.canvas.manager.set_window_title("Bias analysis")
+    return fig, "\n".join(lines)
 
 
-def estimate_gt(pred):
-
-    SLOPE = np.array([ # empiric values
-        -0.084166,
-        -0.343315,
-        -0.155954,
-        -0.765020,
-        -0.671620,
-        -0.612082,
-    ])
-    INTERCEPT = np.array([
-        -0.002105,
-        -0.000186,
-        0.000503,
-        0.001229,
-        -0.002765,
-        0.001885,
-    ])
-
-    gt_est_vector = np.stack([matrix_to_pose_vector(T) for T in pred])
-    gt_est = np.zeros(pred.shape)
-    gt_est[0] = np.eye(4)
-
-    for i in range(1, gt_est_vector.shape[0], 1):
-
-        gt_est_vector[i] = (gt_est_vector[i] - INTERCEPT) / (1.0 + SLOPE)
-        gt_est[i] = pose_vector_to_matrix(gt_est_vector[i])
-
-    return gt_est
-
-
-def variance_statistics(stats, num_bins=10):
-
-    gt_tracking = stats["gt_tracking"]
-    errors_real = stats["errors_real"]
-
-    labels = [
-        "Tx", "Ty", "Tz",
-        "Rx", "Ry", "Rz"
-    ]
-
-    for dof in range(6):
-
-        print(f"\n{'=' * 70}")
-        print(labels[dof])
-        print(f"{'=' * 70}")
-
-        gt_abs = np.abs(gt_tracking[:, dof])
-
-        # Quantile bins -> approximately same number of samples per bin
-        quantiles = np.linspace(0, 1, num_bins + 1)
-        bin_edges = np.quantile(gt_abs, quantiles)
-
-        # Remove duplicate edges (can happen if many identical values exist)
-        bin_edges = np.unique(bin_edges)
-
-        for b in range(len(bin_edges) - 1):
-
-            lower = bin_edges[b]
-            upper = bin_edges[b + 1]
-
-            if b == len(bin_edges) - 2:
-                mask = (gt_abs >= lower) & (gt_abs <= upper) # -> true false mask
+def variance_statistics(stats, num_bins):
+    lines = ["=== Variance statistics ==="]
+    second = stats["second"]
+    errors = stats["errors_real"]
+    for dof, label in enumerate(LABELS):
+        lines.append(label)
+        edges = np.unique(np.quantile(np.abs(second[:, dof]), np.linspace(0, 1, num_bins + 1)))
+        for bin_index in range(len(edges) - 1):
+            lower, upper = edges[bin_index:bin_index + 2]
+            if bin_index == len(edges) - 2:
+                mask = (np.abs(second[:, dof]) >= lower) & (np.abs(second[:, dof]) <= upper)
             else:
-                mask = (gt_abs >= lower) & (gt_abs < upper)
-                print(mask)
+                mask = (np.abs(second[:, dof]) >= lower) & (np.abs(second[:, dof]) < upper)
+            values = errors[mask, dof]
+            if len(values):
+                lines.append(f"  bin={bin_index + 1} range=[{lower:.5f}, {upper:.5f}] N={len(values)} mean={values.mean():.6f} mean_abs={np.abs(values).mean():.6f} std={values.std():.6f}")
+    return "\n".join(lines)
 
-            err = errors_real[mask, dof] # -> get values of indices for which mask is true
 
-            if len(err) == 0:
-                continue
+def estimate_second(first):
+    slope = np.array([-0.084166, -0.343315, -0.155954, -0.765020, -0.671620, -0.612082])
+    intercept = np.array([-0.002105, -0.000186, 0.000503, 0.001229, -0.002765, 0.001885])
+    vectors = np.stack([matrix_to_pose_vector(pose) for pose in first])
+    estimated = np.empty_like(first)
+    estimated[0] = np.eye(4)
+    for index in range(1, len(vectors)):
+        estimated[index] = pose_vector_to_matrix((vectors[index] - intercept) / (1.0 + slope))
+    return estimated
 
-            gt_bin = gt_abs[mask]
 
-            print(
-                f"Bin {b + 1:2d}: "
-                f"median GT={np.median(gt_bin):7.4f}  "
-                f"[{lower:7.4f}, {upper:7.4f}]  "
-                f"N={len(err):5d}  "
-                f"mean={err.mean():9.5f}  "
-                f"mean_abs={np.abs(err).mean():9.5f}  "
-                f"std={err.std():9.5f}"
-            )
-    
-
-def la_improvement_stats(pred_all, gt_all, gt_est, num_quantiles=10):
-
-    pred = np.stack([matrix_to_pose_vector(T) for T in pred_all])
-    gt = np.stack([matrix_to_pose_vector(T) for T in gt_all])
-    est = np.stack([matrix_to_pose_vector(T) for T in gt_est])
-
-    old_error = np.abs(pred - gt)
-    new_error = np.abs(est - gt)
-    gt_abs = np.abs(gt)
-    pred_abs = np.abs(pred)
-
-    labels = ["Tx", "Ty", "Tz", "Rx", "Ry", "Rz"]
-
-    for dof in range(6):
-
-        print(f"\n{labels[dof]}")
-
-        edges = np.quantile(
-            gt_abs[:, dof],
-            np.linspace(0, 1, num_quantiles + 1)
-        )
-        edges = np.unique(edges)
-
-        for q in range(len(edges) - 1):
-
-            lower = edges[q]
-            upper = edges[q + 1]
-
-            if q == len(edges) - 2:
-                mask = (
-                    (gt_abs[:, dof] >= lower) &
-                    (gt_abs[:, dof] <= upper)
-                )
-            else:
-                mask = (
-                    (gt_abs[:, dof] >= lower) &
-                    (gt_abs[:, dof] < upper)
-                )
-
+def linear_approximation_statistics(first, second, num_quantiles):
+    estimated_vectors = np.stack([matrix_to_pose_vector(pose) for pose in estimate_second(first)])
+    first_vectors = np.stack([matrix_to_pose_vector(pose) for pose in first])
+    second_vectors = np.stack([matrix_to_pose_vector(pose) for pose in second])
+    old_error = np.abs(first_vectors - second_vectors)
+    new_error = np.abs(estimated_vectors - second_vectors)
+    lines = ["=== Linear approximation statistics ==="]
+    for dof, label in enumerate(LABELS):
+        edges = np.unique(np.quantile(np.abs(second_vectors[:, dof]), np.linspace(0, 1, num_quantiles + 1)))
+        lines.append(label)
+        for index in range(len(edges) - 1):
+            lower, upper = edges[index:index + 2]
+            mask = (np.abs(second_vectors[:, dof]) >= lower) & ((np.abs(second_vectors[:, dof]) <= upper) if index == len(edges) - 2 else (np.abs(second_vectors[:, dof]) < upper))
             if not np.any(mask):
                 continue
+            improved = new_error[mask, dof] < old_error[mask, dof]
+            lines.append(f"  bin={index + 1} N={mask.sum()} improved={100 * improved.mean():.2f}%")
+    return "\n".join(lines)
 
-            old = old_error[mask, dof]
-            new = new_error[mask, dof]
-            gt_mag = gt_abs[mask, dof]
-            pred_mag = pred_abs[mask, dof]
 
-            improved = new < old
-            worsened = new > old
+def save_figure(fig, output_dir, name):
+    fig.savefig(Path(output_dir) / f"{name}.png", dpi=150)
+    plt.close(fig)
 
-            percentage = 100.0 * improved.mean()
-
-            if np.any(improved):
-                improvement_rate = (
-                    (old[improved] - new[improved]) /
-                    np.maximum(old[improved], 1e-12)
-                ).mean() * 100.0
-
-                improved_gt_error = (
-                    new[improved] /
-                    np.maximum(gt_mag[improved], 1e-12)
-                ).mean() * 100.0
-
-                improved_pred_error = (
-                                    new[improved] /
-                                    np.maximum(pred_mag[improved], 1e-12)
-                                ).mean() * 100.0
-            else:
-                improvement_rate = np.nan
-                improved_gt_error = np.nan
-
-            if np.any(worsened):
-                worsening_rate = (
-                    (new[worsened] - old[worsened]) /
-                    np.maximum(old[worsened], 1e-12)
-                ).mean() * 100.0
-
-                worsened_gt_error = (
-                    new[worsened] /
-                    np.maximum(gt_mag[worsened], 1e-12)
-                ).mean() * 100.0
-
-                worsened_pred_error = (
-                                    new[worsened] /
-                                    np.maximum(pred_mag[worsened], 1e-12)
-                                ).mean() * 100.0
-            else:
-                worsening_rate = np.nan
-                worsened_gt_error = np.nan
-
-            print(
-                f"Q{q+1:2d} "
-                f"[{lower:.4f}, {upper:.4f}] "
-                f"N={mask.sum():5d} | "
-                f"Improved={percentage:6.2f}% | "
-                f"Avg improvement={improvement_rate:6.2f}% | "
-                f"Avg worsening={worsening_rate:6.2f}% | "
-                f"Improved err/GT={improved_gt_error:6.2f}% | "
-                f"Worsened err/GT={worsened_gt_error:6.2f}% | "
-                f"Improved err/pred={improved_pred_error:6.2f}% | "
-                f"Worsened err/pred={worsened_pred_error:6.2f}%"
-            )
 
 def main():
 
-    # -----------------------------------------------------------------------------
-    # data loading
-    # -----------------------------------------------------------------------------
-    input_pred_path = "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run/scans"
-    input_gt_path = "/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", "-c", required=True)
+    args = parser.parse_args()
+    config = OmegaConf.load(args.config)
+    
+    input_pred_path = config.inputs.input_pred_path
+    input_gt_path = config.inputs.input_gt_path
+    nr_of_scans = config.inputs.get("nr_of_scans")
+    start = config.inputs.get("start", 1)
 
     pred_all, gt_all = load_all_relative_trackings(
         input_pred_path=input_pred_path,
         input_gt_path=input_gt_path,
-        nr_of_scans=None,
-        start=1,
+        nr_of_scans=nr_of_scans,
+        start=start,
     )
+    stats = compute_pose_statistics(pred_all, gt_all)
+    quantile = float(config.parameters.get("quantile", 0.95))
+    bins = int(config.parameters.get("bins", 60))
+    num_bins = int(config.parameters.get("num_bins", 10))
+    num_quantiles = int(config.parameters.get("num_quantiles", 10))
 
-    # -----------------------------------------------------------------------------
-    # pred statistics
-    # -----------------------------------------------------------------------------
-    pred_stats = compute_pose_statistics(pred_all, gt_all)
-    
-    #print_statistics(pred_stats)
-    # -> Fehler sind im Prinzip mittelwertfrei
-    # -> Groessere Fehler bei groesseren Werten
-    # -> Groesste Fehler bei y und roll (ergibt Sinn, da y Dimension kleiner ist als x Dimension -> weniger Info bei y, mehr Fehler bei x roll)
-    # -> Generell sind Winkelfehler viel groesser als T Fehler im Vergleich zu Werten (ergibt Sinn, da Translation recht eindeutig ist)
+    largest_indices, largest_text = largest_error_indices(stats, quantile)
+    bias_figure, bias_text = bias_plot(stats)
+    figures = {
+        "error_histograms": error_histograms(stats, bins),
+        "qq_plots": qq_plots(stats),
+        "values": values_plot(stats, largest_indices),
+        "bias": bias_figure,
+    }
+    text = "\n\n".join([
+        print_statistics(stats),
+        largest_text,
+        variance_statistics(stats, num_bins),
+        bias_text,
+        linear_approximation_statistics(pred_all, gt_all, num_quantiles),
+    ])
 
+    output_dir = Path(config.output.path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "results.txt").write_text(text + "\n", encoding="utf-8")
+    for name, figure in figures.items():
+        save_figure(figure, output_dir, name)
 
-    # -----------------------------------------------------------------------------
-    # errors
-    # -----------------------------------------------------------------------------
-    largest_indices, thresholds = get_largest_error_indices(pred_stats, quantile=0.95)
-
-    # print("Largest 5% thresholds:")
-    # for label, thr in zip(LABELS, thresholds):
-    #     print(f"  {label}: {thr:.4f}")
-
-    # plot_error_histograms(stats)
-    # plot_qq_plots(stats)
-    # -> errors are basically gaussian (only really small and really big errors are off)
-    
-    # plot_values(
-    #     values=[
-    #         pred_stats["errors_real"],
-    #     ],
-    #     labels=[
-    #         "GT",
-    #         "Pred",
-    #         "Abs error",
-    #     ],
-    #     title="pred errors"
-    # )
-
-    # pgo.plot_motion_vs_error(pred_all, gt_all, title="Scatter plot errors")
-    # -> the larger GT the larger error, especially for angles
-
-    #variance_statistics(pred_stats)
-    # -> abs mean der Fehler steigt ueber Wertebereich von GT gar nicht bis moderat an, erst bei sehr grossen Werten steigt es stark
-    # -> std dasselbe
-    # -> staerkerer Anstieg bei Rotation
-    # -> Wieder: besonders grosse Werte bedeuten grosse Fehler
-
-
-    # -----------------------------------------------------------------------------
-    # linear approximation
-    # -----------------------------------------------------------------------------
-    #plot_bias(pred_stats)
-    # -> negative correlation between GT and Error for all DoFs (more for angles than for translation)
-    # -> x y z is fine, pitch and yaw abs estimations too big (negative values too small, positive too big), no drift in neither
-    gt_est = estimate_gt(pred_all)
-    gt_est_stats = compute_pose_statistics(gt_est, gt_all)
-    # print_statistics(gt_est_stats)
-
-    # Did linear approximation improve anything?
-    la_improvement_stats(pred_all, gt_all, gt_est, 10)
-    # -> improvement especially for large GT values and translation
-    # -> improvement of about 20 - 50%
-    # -> worsening of several 100 to 1000 percent
-    # -> worsened is way bigger than GT compared to improved, though regarding pred the distinction is not that great, so simple filtering of worsenings by magnitude not possible 
-
-    # plot_bias(gt_est_stats)
-    # plot_bias(pred_stats)
-    # plot_values(
-    #     values=[
-    #         gt_est_stats["gt_tracking"],
-    #         gt_est_stats["pred_tracking"],
-    #     ],
-    #     labels=[
-    #         "GT",
-    #         "Pred",
-    #         "Abs error"
-    #     ],
-    #     title="est gt errors"
-    # )
-
-    plt.show()
+    print(f"Wrote {output_dir / 'results.txt'}")
 
 
 if __name__ == "__main__":

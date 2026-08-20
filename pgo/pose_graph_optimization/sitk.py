@@ -19,6 +19,7 @@ def sitk_2d_register(
     metric: str = "mi",
     optimizer:str = "gradient",
     options: str = "",
+    replace_pred_factor: float = 0.1,
 ) -> tuple[
     np.ndarray,
     float,
@@ -32,18 +33,18 @@ def sitk_2d_register(
 
     options = options or ""
 
+    crop_offset_y = crop_offset_x = 0
+    if "crop" in options:
+        frame_i, (crop_offset_y, crop_offset_x) = crop_center_frames(
+            frame_i, (0.5, 0.5)
+        )
+        frame_j, _ = crop_center_frames(frame_j, (0.5, 0.5))
+
     ## images
     fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
     moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
 
-    # use center part of image which is not as affected as outer part by pitch and roll
-    if "use_center" in options: # -> Verbesserung von 233% fuer FDR, 240% fuer GPE, 260% fuer Ausfuehrungszeit)
-
-        # image_plot(fixed, title="fixed before")
-        # plt.show()
-        # breakpoint()
-        # image_plot(moving, title="moving before")
-
+    if "roi" in options:
         roi_size, roi_index = get_center_roi_params(fixed.GetSize(), (0.5, 0.5))
 
         fixed = sitk.RegionOfInterest(
@@ -56,13 +57,17 @@ def sitk_2d_register(
             size=roi_size,
             index=roi_index,
         )
-        
+
     fixed.SetSpacing((SPACING_X, SPACING_Y))
     moving.SetSpacing((SPACING_X, SPACING_Y))
 
-    fixed.SetOrigin((ORIGIN_X, ORIGIN_Y)) # origin in SITK is not origin in DualTrack! Also, origin only has minimal effect when it is the same for both
+    image_origin = (
+        ORIGIN_X + crop_offset_x * SPACING_X,
+        ORIGIN_Y + crop_offset_y * SPACING_Y,
+    )
+    fixed.SetOrigin(image_origin) # origin in SITK is not origin in DualTrack! Also, origin only has minimal effect when it is the same for both
     # (still it makes sense to leave it as is as CenteredTransformInitializer computes R center from this)
-    moving.SetOrigin((ORIGIN_X, ORIGIN_Y))
+    moving.SetOrigin(image_origin)
     # image_plot(fixed, title="fixed before")
     # plt.show()
     # breakpoint()
@@ -147,6 +152,9 @@ def sitk_2d_register(
         image_plot(registered_image_ir, title="ir transform")
         plt.show()
 
+    print("rotation determinants:", np.linalg.det(ref_transform))
+    print(f"image size: {fixed.GetSize()}")
+
     return (
         transform_reg_inv,
         float(metric_before_identity),
@@ -156,7 +164,7 @@ def sitk_2d_register(
     )
 
 
-def sitk_3d_register(
+def sitk_3d_register( # benutzt alle 20 Kerne
     volume_frames: np.ndarray,
     volume_poses: np.ndarray,
     slice_frame: np.ndarray,
@@ -166,7 +174,7 @@ def sitk_3d_register(
     optimizer: str = "gradient",
     options: str = "",
     transform_type: str = "versor",
-    debug: bool = False,
+    replace_pred_factor: float = 0.1,
 ) -> tuple[
     np.ndarray,
     float,
@@ -178,30 +186,57 @@ def sitk_3d_register(
     # init
     options = options or ""
 
+    if "crop" in options:
+        volume_frames, (volume_offset_y, volume_offset_x) = crop_center_frames(
+            volume_frames, (0.5, 0.5)
+        )
+        slice_frame, (slice_offset_y, slice_offset_x) = crop_center_frames(
+            slice_frame, (0.5, 0.5)
+        )
+    else:
+        volume_offset_y = volume_offset_x = 0
+        slice_offset_y = slice_offset_x = 0
+
+    volume_origin = (
+        ORIGIN_X + volume_offset_x * SPACING_X,
+        ORIGIN_Y + volume_offset_y * SPACING_Y,
+    )
+    slice_origin = (
+        ORIGIN_X + slice_offset_x * SPACING_X,
+        ORIGIN_Y + slice_offset_y * SPACING_Y,
+    )
+
     # build volumes
     start = time.time()
-    volume, _, _ = build_volume_from_slices(volume_frames, volume_poses, options=options)
+    volume, _, _ = build_volume_from_slices(
+        volume_frames,
+        volume_poses,
+        options=options,
+        image_origin=volume_origin,
+    )
     volume_building_time = time.time() - start
     
     start = time.time()
     slice_volume = slice_to_volume(slice_frame,
                                     slice_frame_pose,
                                    (SPACING_X, SPACING_Y, SPACING_X),
-                                   (ORIGIN_X, ORIGIN_Y, 0.0),
+                                   (*slice_origin, 0.0),
                                    thickness=4)
     slice_building_time = time.time() - start
 
+    # init IR
+    reg_init_time_start = time.time()
     fixed = slice_volume
     moving = volume
 
-    if "use_center" in options:
-        
+    if "roi" in options:
         roi_size, roi_index = get_center_roi_params(fixed.GetSize(), (0.5, 0.5, 1.0))
         fixed = sitk.RegionOfInterest(
             fixed,
             size=roi_size,
             index=roi_index,
         )
+
         roi_size, roi_index = get_center_roi_params(moving.GetSize(), (0.5, 0.5, 1.0))
         moving = sitk.RegionOfInterest(
             moving,
@@ -209,34 +244,33 @@ def sitk_3d_register(
             index=roi_index,
         )
 
-    # init IR
     registration = build_registration_object(metric, optimizer, options)
 
-    # set initial transform to gt transform and evaluate
-    initial = set_transform_from_pose(
-        fixed,
-        moving,
-        slice_frame_pose_gt,
-        transform_type,
-    )
-    registration.SetInitialTransform(initial)
-    metric_before_gt = registration.MetricEvaluate(
-        fixed,
-        moving,
-    )
+    # # set initial transform to gt transform and evaluate
+    # initial = set_transform_from_pose(
+    #     fixed,
+    #     moving,
+    #     slice_frame_pose_gt,
+    #     transform_type,
+    # )
+    # registration.SetInitialTransform(initial)
+    # metric_before_gt = registration.MetricEvaluate( # takes up to 60% of total runtime!!
+    #     fixed,
+    #     moving,
+    # )
 
-    # set initial transform to predicted transform and evaluate
-    initial = set_transform_from_pose(
-        fixed,
-        moving,
-        slice_frame_pose,
-        transform_type,
-    )
-    registration.SetInitialTransform(initial)
-    metric_before_pred = registration.MetricEvaluate(
-        fixed,
-        moving,
-    )
+    # # set initial transform to predicted transform and evaluate
+    # initial = set_transform_from_pose(
+    #     fixed,
+    #     moving,
+    #     slice_frame_pose,
+    #     transform_type,
+    # )
+    # registration.SetInitialTransform(initial)
+    # metric_before_pred = registration.MetricEvaluate(
+    #     fixed,
+    #     moving,
+    # )
 
     # set initial transform to identity and evaluate
     initial = set_transform_from_pose(
@@ -246,10 +280,11 @@ def sitk_3d_register(
             transform_type,
         )
     registration.SetInitialTransform(initial)
-    metric_before_identity = registration.MetricEvaluate(
-        fixed,
-        moving,
-    )
+    # metric_before_identity = registration.MetricEvaluate(
+    #     fixed,
+    #     moving,
+    # )
+    reg_init_time = time.time() - reg_init_time_start
 
     # register
     start = time.time()
@@ -259,6 +294,7 @@ def sitk_3d_register(
     )
     reg_time = time.time() - start
     transform_reg = sitk_to_6dof(transform_reg)
+    transform_reg_inv = np.linalg.inv(transform_reg)
     metric_after = registration.GetMetricValue()
 
     if "show_ir" in options:
@@ -271,20 +307,26 @@ def sitk_3d_register(
             volume_labels=["volume", "ir slice", "gt slice", "pred slice"]
         )
     all_time = time.time() - all_start
+
+    metric_before_identity = 0
+    metric_before_gt = 0
+    metric_before_pred = 0
+    metric_after = 0
     
-    if debug:
+    if "debug" in options:
         print(f"\n=== 3D Registration Timing ===")
         print(f"Total time:      {all_time:.3f}s")
         print(f"Vol building:    {volume_building_time:.3f}s ({(volume_building_time / all_time) * 100:.1f}%)")
         print(f"Slice building:  {slice_building_time:.3f}s ({(slice_building_time / all_time) * 100:.1f}%)")
         print(f"Registration:    {reg_time:.3f}s ({(reg_time / all_time) * 100:.1f}%)")
+        print(f"IR Init:         {reg_init_time:.3f}s ({(reg_init_time / all_time) * 100:.1f}%)")
         print(f"Volume shape: {moving.GetSize()}")
         print(f"Fixed shape: {fixed.GetSize()}")
         print(f"Metric before (id/gt/pred): {metric_before_identity:.4f} / {metric_before_gt:.4f} / {metric_before_pred:.4f}")
         print(f"Metric after: {metric_after:.4f}")
 
     return (
-            transform_reg, # global pose
+            transform_reg_inv, # pose relative to first window frame pose
             float(metric_before_identity),
             float(metric_before_gt),
             float(metric_before_pred),
@@ -355,7 +397,7 @@ def show_volumes(
                 slice_frame=frame,
                 pose=pose,
                 spacing=[SPACING_X, SPACING_Y, SPACING_X],
-                origin=[ORIGIN_X, ORIGIN_Y, 0.0],
+                origin=volumes[0].GetOrigin(),
                 thickness=1
             )
 
@@ -412,12 +454,6 @@ def set_transform_from_pose(fixed,
         initial = sitk.VersorRigid3DTransform()
 
         initial.SetMatrix(correct_to_orthogonal(R).reshape(-1).tolist())
-        initial.SetTranslation(t.tolist())
-
-    elif transform_type == "affine": # affine transform?? Jannis?
-
-        initial = sitk.AffineTransform(3)
-        initial.SetMatrix(R.reshape(-1).tolist())
         initial.SetTranslation(t.tolist())
 
     elif transform_type == "euler":
@@ -623,6 +659,7 @@ def build_volume_from_slices(
     poses: np.ndarray,
     volume_spacing: tuple[float, float, float] = (SPACING_X, SPACING_Y, SPACING_X),
     options: str = "",
+    image_origin: tuple[float, float] = (ORIGIN_X, ORIGIN_Y),
 ):
     """Build a 3D volume from 2D frames with known poses.
 
@@ -634,8 +671,8 @@ def build_volume_from_slices(
 
     # Pixel indices (upper-left origin) -> local image-space coords (origin at image center).
     xx, yy = np.meshgrid(np.arange(w), np.arange(h), indexing="xy")
-    x_local = xx.ravel() * SPACING_X + ORIGIN_X
-    y_local = yy.ravel() * SPACING_Y + ORIGIN_Y
+    x_local = xx.ravel() * SPACING_X + image_origin[0]
+    y_local = yy.ravel() * SPACING_Y + image_origin[1]
     local_pts = np.stack(
         [x_local, y_local, np.zeros_like(x_local), np.ones_like(x_local)], axis=-1
     )  # (P, 4)
@@ -679,6 +716,11 @@ def build_volume_from_slices(
         volume = _fill_interior_holes(volume, mask_image)
 
     volume = sitk.Expand(volume, [1, 1, 4])
+
+    print("rotation determinants:", [
+        np.linalg.det(pose[:3, :3]) for pose in poses
+    ])
+    print(f"volume size: {volume.GetSize()}")
 
     return volume, tuple(world_min), volume_spacing
 
@@ -857,6 +899,28 @@ def _6dof_to_sitk(T_itk):
     transform.SetTranslation((tx, ty))
 
     return transform
+
+
+def crop_center_frames(
+    frames: np.ndarray,
+    fractions: tuple[float, float] = (0.5, 0.5),
+) -> tuple[np.ndarray, tuple[int, int]]:
+    """Crop the last two dimensions of frames around their common image center."""
+    if frames.ndim < 2:
+        raise ValueError("frames must have at least two dimensions.")
+    if len(fractions) != 2:
+        raise ValueError("fractions must contain (height, width).")
+    if any(not 0 < fraction <= 1 for fraction in fractions):
+        raise ValueError("All fractions must be in the range (0, 1].")
+
+    height, width = frames.shape[-2:]
+    crop_height = max(1, int(round(height * fractions[0])))
+    crop_width = max(1, int(round(width * fractions[1])))
+    offset_y = (height - crop_height) // 2
+    offset_x = (width - crop_width) // 2
+
+    slices = (..., slice(offset_y, offset_y + crop_height), slice(offset_x, offset_x + crop_width))
+    return frames[slices], (offset_y, offset_x)
 
 
 def get_center_roi_params(size, fractions):

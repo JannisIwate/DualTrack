@@ -1,0 +1,14 @@
+inputs:
+  input_pred_path: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run/scans
+  input_gt_path: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted
+  start_scan: 1
+  nr_scans: null
+
+parameters:
+  quantile: 0.95
+  bins: 60
+  num_bins: 10
+  num_quantiles: 10
+
+output:
+  path: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/error_evals/test/output

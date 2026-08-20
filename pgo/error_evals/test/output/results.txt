@@ -1,0 +1,201 @@
+=== Error statistics ===
+Tx:
+  Mean second   : -0.0083
+  Mean first    : -0.0097
+  Mean second abs: 0.2438
+  Mean first abs: 0.2375
+  MAE           : 0.0580
+  Mean error    : -0.0014
+  Std deviation : 0.0766
+Ty:
+  Mean second   : -0.0012
+  Mean first    : -0.0010
+  Mean second abs: 0.0343
+  Mean first abs: 0.0283
+  MAE           : 0.0205
+  Mean error    : 0.0002
+  Std deviation : 0.0268
+Tz:
+  Mean second   : -0.0016
+  Mean first    : -0.0008
+  Mean second abs: 0.1979
+  Mean first abs: 0.1798
+  MAE           : 0.0693
+  Mean error    : 0.0007
+  Std deviation : 0.0902
+Rx:
+  Mean second   : 0.0023
+  Mean first    : 0.0018
+  Mean second abs: 0.0339
+  Mean first abs: 0.0182
+  MAE           : 0.0323
+  Mean error    : -0.0005
+  Std deviation : 0.0421
+Ry:
+  Mean second   : -0.0043
+  Mean first    : -0.0042
+  Mean second abs: 0.0308
+  Mean first abs: 0.0209
+  MAE           : 0.0255
+  Mean error    : 0.0001
+  Std deviation : 0.0331
+Rz:
+  Mean second   : 0.0034
+  Mean first    : 0.0032
+  Mean second abs: 0.0364
+  Mean first abs: 0.0219
+  MAE           : 0.0292
+  Mean error    : -0.0002
+  Std deviation : 0.0383
+
+=== Largest errors at quantile 0.950 ===
+Tx: threshold=0.150323, count=1738
+Ty: threshold=0.053823, count=1738
+Tz: threshold=0.177677, count=1738
+Rx: threshold=0.083540, count=1738
+Ry: threshold=0.066355, count=1738
+Rz: threshold=0.075744, count=1738
+
+=== Variance statistics ===
+Tx
+  bin=1 range=[0.00000, 0.05478] N=3475 mean=-0.000237 mean_abs=0.052781 std=0.069500
+  bin=2 range=[0.05478, 0.10677] N=3474 mean=-0.002439 mean_abs=0.053313 std=0.069719
+  bin=3 range=[0.10677, 0.15257] N=3475 mean=-0.005142 mean_abs=0.051687 std=0.067851
+  bin=4 range=[0.15257, 0.19539] N=3474 mean=-0.004165 mean_abs=0.051429 std=0.066425
+  bin=5 range=[0.19539, 0.23506] N=3475 mean=-0.003488 mean_abs=0.052284 std=0.066659
+  bin=6 range=[0.23506, 0.27479] N=3475 mean=-0.002699 mean_abs=0.052573 std=0.066217
+  bin=7 range=[0.27479, 0.31818] N=3474 mean=0.000668 mean_abs=0.052586 std=0.066305
+  bin=8 range=[0.31818, 0.36830] N=3474 mean=0.000153 mean_abs=0.053348 std=0.067258
+  bin=9 range=[0.36830, 0.43699] N=3475 mean=0.000096 mean_abs=0.058564 std=0.074340
+  bin=10 range=[0.43699, 1.40319] N=3475 mean=0.003165 mean_abs=0.101447 std=0.128771
+Ty
+  bin=1 range=[0.00000, 0.00502] N=3475 mean=0.000902 mean_abs=0.015792 std=0.020525
+  bin=2 range=[0.00502, 0.01024] N=3474 mean=0.001278 mean_abs=0.015810 std=0.020278
+  bin=3 range=[0.01024, 0.01562] N=3475 mean=0.000941 mean_abs=0.016103 std=0.020556
+  bin=4 range=[0.01562, 0.02123] N=3474 mean=0.000819 mean_abs=0.016950 std=0.021565
+  bin=5 range=[0.02123, 0.02765] N=3475 mean=0.000143 mean_abs=0.017738 std=0.022327
+  bin=6 range=[0.02765, 0.03488] N=3474 mean=0.000085 mean_abs=0.018765 std=0.023497
+  bin=7 range=[0.03488, 0.04371] N=3475 mean=-0.000667 mean_abs=0.020842 std=0.026119
+  bin=8 range=[0.04371, 0.05474] N=3474 mean=-0.000724 mean_abs=0.021845 std=0.027742
+  bin=9 range=[0.05474, 0.07214] N=3475 mean=-0.000704 mean_abs=0.025735 std=0.032221
+  bin=10 range=[0.07214, 0.24603] N=3475 mean=0.000245 mean_abs=0.035445 std=0.043887
+Tz
+  bin=1 range=[0.00000, 0.03206] N=3475 mean=0.000869 mean_abs=0.054366 std=0.072764
+  bin=2 range=[0.03206, 0.06477] N=3474 mean=0.000134 mean_abs=0.057813 std=0.073594
+  bin=3 range=[0.06477, 0.09994] N=3475 mean=0.000913 mean_abs=0.064956 std=0.081400
+  bin=4 range=[0.09994, 0.13633] N=3474 mean=-0.002838 mean_abs=0.067653 std=0.085080
+  bin=5 range=[0.13633, 0.17514] N=3475 mean=-0.000414 mean_abs=0.070145 std=0.089269
+  bin=6 range=[0.17514, 0.21717] N=3474 mean=-0.000654 mean_abs=0.070718 std=0.089746
+  bin=7 range=[0.21717, 0.26392] N=3475 mean=-0.001951 mean_abs=0.069328 std=0.089389
+  bin=8 range=[0.26392, 0.32132] N=3474 mean=0.001000 mean_abs=0.066484 std=0.088232
+  bin=9 range=[0.32132, 0.39522] N=3475 mean=0.009838 mean_abs=0.067155 std=0.086866
+  bin=10 range=[0.39522, 1.29508] N=3475 mean=0.000588 mean_abs=0.104679 std=0.131770
+Rx
+  bin=1 range=[0.00000, 0.00475] N=3475 mean=-0.000425 mean_abs=0.015876 std=0.022230
+  bin=2 range=[0.00475, 0.00974] N=3474 mean=-0.000133 mean_abs=0.016568 std=0.022469
+  bin=3 range=[0.00974, 0.01482] N=3475 mean=0.000267 mean_abs=0.017777 std=0.023250
+  bin=4 range=[0.01482, 0.02027] N=3474 mean=0.000238 mean_abs=0.020609 std=0.025886
+  bin=5 range=[0.02027, 0.02639] N=3475 mean=-0.000095 mean_abs=0.024097 std=0.029214
+  bin=6 range=[0.02639, 0.03342] N=3475 mean=0.001105 mean_abs=0.028417 std=0.033519
+  bin=7 range=[0.03342, 0.04190] N=3474 mean=-0.000015 mean_abs=0.033153 std=0.038009
+  bin=8 range=[0.04190, 0.05329] N=3474 mean=0.000203 mean_abs=0.040347 std=0.045101
+  bin=9 range=[0.05329, 0.07184] N=3475 mean=0.002412 mean_abs=0.051313 std=0.055683
+  bin=10 range=[0.07184, 0.62012] N=3475 mean=-0.008812 mean_abs=0.074928 std=0.082739
+Ry
+  bin=1 range=[0.00000, 0.00473] N=3475 mean=-0.002805 mean_abs=0.018353 std=0.021706
+  bin=2 range=[0.00473, 0.00969] N=3474 mean=-0.002666 mean_abs=0.018454 std=0.021960
+  bin=3 range=[0.00969, 0.01485] N=3475 mean=-0.002518 mean_abs=0.017438 std=0.021699
+  bin=4 range=[0.01485, 0.02008] N=3474 mean=-0.001921 mean_abs=0.017564 std=0.022575
+  bin=5 range=[0.02008, 0.02595] N=3475 mean=-0.001106 mean_abs=0.017960 std=0.023791
+  bin=6 range=[0.02595, 0.03232] N=3475 mean=-0.000986 mean_abs=0.019665 std=0.025785
+  bin=7 range=[0.03232, 0.03958] N=3474 mean=-0.000449 mean_abs=0.022286 std=0.028115
+  bin=8 range=[0.03958, 0.04865] N=3474 mean=0.000631 mean_abs=0.027684 std=0.033132
+  bin=9 range=[0.04865, 0.06340] N=3475 mean=0.003123 mean_abs=0.036053 std=0.040466
+  bin=10 range=[0.06340, 0.24509] N=3475 mean=0.009824 mean_abs=0.059376 std=0.064060
+Rz
+  bin=1 range=[0.00000, 0.00504] N=3475 mean=0.001083 mean_abs=0.015298 std=0.020375
+  bin=2 range=[0.00504, 0.01045] N=3474 mean=0.001103 mean_abs=0.016504 std=0.021432
+  bin=3 range=[0.01045, 0.01586] N=3475 mean=-0.000223 mean_abs=0.017410 std=0.022247
+  bin=4 range=[0.01586, 0.02168] N=3474 mean=-0.000321 mean_abs=0.019702 std=0.024729
+  bin=5 range=[0.02168, 0.02830] N=3475 mean=0.001177 mean_abs=0.022308 std=0.027358
+  bin=6 range=[0.02830, 0.03583] N=3474 mean=-0.000054 mean_abs=0.025580 std=0.030511
+  bin=7 range=[0.03583, 0.04481] N=3475 mean=-0.000580 mean_abs=0.030311 std=0.035320
+  bin=8 range=[0.04481, 0.05711] N=3474 mean=0.000883 mean_abs=0.036053 std=0.041469
+  bin=9 range=[0.05711, 0.07692] N=3475 mean=0.000736 mean_abs=0.043592 std=0.049404
+  bin=10 range=[0.07692, 0.59502] N=3475 mean=-0.005711 mean_abs=0.065152 std=0.074326
+
+=== Bias statistics ===
+Tx: slope=-0.084166, intercept=-0.002105, R2=0.097
+Ty: slope=-0.343315, intercept=-0.000186, R2=0.322
+Tz: slope=-0.155954, intercept=0.000503, R2=0.176
+Rx: slope=-0.765020, intercept=0.001229, R2=0.682
+Ry: slope=-0.671620, intercept=-0.002765, R2=0.622
+Rz: slope=-0.612082, intercept=0.001885, R2=0.605
+
+=== Linear approximation statistics ===
+Tx
+  bin=1 N=3475 improved=16.95%
+  bin=2 N=3474 improved=30.69%
+  bin=3 N=3475 improved=36.78%
+  bin=4 N=3474 improved=39.29%
+  bin=5 N=3475 improved=38.79%
+  bin=6 N=3475 improved=42.91%
+  bin=7 N=3474 improved=46.69%
+  bin=8 N=3474 improved=50.23%
+  bin=9 N=3475 improved=61.38%
+  bin=10 N=3475 improved=81.76%
+Ty
+  bin=1 N=3475 improved=4.06%
+  bin=2 N=3474 improved=14.25%
+  bin=3 N=3475 improved=21.76%
+  bin=4 N=3474 improved=27.40%
+  bin=5 N=3475 improved=36.03%
+  bin=6 N=3474 improved=40.99%
+  bin=7 N=3475 improved=46.73%
+  bin=8 N=3474 improved=50.29%
+  bin=9 N=3475 improved=55.86%
+  bin=10 N=3475 improved=65.04%
+Tz
+  bin=1 N=3475 improved=9.35%
+  bin=2 N=3474 improved=25.71%
+  bin=3 N=3475 improved=36.52%
+  bin=4 N=3474 improved=43.24%
+  bin=5 N=3475 improved=46.56%
+  bin=6 N=3474 improved=49.45%
+  bin=7 N=3475 improved=47.02%
+  bin=8 N=3474 improved=48.68%
+  bin=9 N=3475 improved=54.65%
+  bin=10 N=3475 improved=76.17%
+Rx
+  bin=1 N=3475 improved=1.90%
+  bin=2 N=3474 improved=6.76%
+  bin=3 N=3475 improved=11.25%
+  bin=4 N=3474 improved=14.91%
+  bin=5 N=3475 improved=20.26%
+  bin=6 N=3475 improved=25.58%
+  bin=7 N=3474 improved=30.89%
+  bin=8 N=3474 improved=35.49%
+  bin=9 N=3475 improved=44.17%
+  bin=10 N=3475 improved=51.57%
+Ry
+  bin=1 N=3475 improved=2.71%
+  bin=2 N=3474 improved=4.09%
+  bin=3 N=3475 improved=8.43%
+  bin=4 N=3474 improved=11.92%
+  bin=5 N=3475 improved=15.60%
+  bin=6 N=3475 improved=21.41%
+  bin=7 N=3474 improved=30.66%
+  bin=8 N=3474 improved=39.21%
+  bin=9 N=3475 improved=51.45%
+  bin=10 N=3475 improved=69.90%
+Rz
+  bin=1 N=3475 improved=4.29%
+  bin=2 N=3474 improved=8.87%
+  bin=3 N=3475 improved=16.03%
+  bin=4 N=3474 improved=21.30%
+  bin=5 N=3475 improved=28.26%
+  bin=6 N=3474 improved=34.46%
+  bin=7 N=3475 improved=41.38%
+  bin=8 N=3474 improved=47.52%
+  bin=9 N=3475 improved=54.42%
+  bin=10 N=3475 improved=62.94%

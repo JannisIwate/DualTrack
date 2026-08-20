@@ -1,0 +1,13 @@
+Notes preserved from the original error_evals.py
+
+- Errors are basically mean-free.
+- Larger motion values produce larger errors.
+- The largest errors are often in y and roll; the smaller y dimension provides less information.
+- Rotation errors are larger relative to their values than translation errors.
+- Errors are approximately Gaussian except at very small and very large values.
+- Error magnitude increases with GT magnitude, especially for angles.
+- The absolute mean error is mostly stable for small to moderate GT values and rises for very large values.
+- Variance rises with GT magnitude, more strongly for rotation.
+- Linear bias analysis showed negative correlation between GT and error for all DoFs.
+- x, y, z behavior was acceptable; pitch and yaw absolute estimates were too large.
+- Linear approximation improved some large values, especially translation, but caused much larger worsening in other samples and was therefore not suitable as a general correction.

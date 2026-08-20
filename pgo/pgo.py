@@ -10,6 +10,7 @@ from itertools import islice
 from matplotlib import pyplot as plt
 import time
 from scipy.stats import norm
+from scipy.spatial.transform import Rotation
 
 sys.path.append(os.getcwd())
 sys.path.append("/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo")
@@ -20,7 +21,7 @@ from pose_graph_optimization.error_metrics import *
 from pose_graph_optimization.utils import *
 from pose_graph_optimization.loop_closure import *
 from pose_graph_optimization.image_registration import *
-from error_evals import *
+# from error_evals import *
 from src.utils.pose import *
 from src.evaluator import *
 
@@ -207,6 +208,8 @@ def plot_trajectories(trajectories, labels=None, colors=None, title: str = "Traj
     ax.set_title("Pose Graph Trajectories")
     ax.legend()
     fig.canvas.manager.set_window_title(title)
+    # plt.show()
+    # breakpoint()
 
     return fig
 
@@ -407,6 +410,27 @@ def linear_approximation(
 # IR
 # ==========================================================================
 
+def blend_pose(pred_pose: np.ndarray, ir_pose: np.ndarray, factor: float) -> np.ndarray:
+
+    if not 0 <= factor <= 1:
+        raise ValueError("replace_pred_factor must be in the range [0, 1].")
+
+    blended_pose = pred_pose.copy()
+    blended_pose[:3, 3] = pred_pose[:3, 3] + factor * (
+        ir_pose[:3, 3] - pred_pose[:3, 3]
+    )
+
+    pred_rotation = Rotation.from_matrix(pred_pose[:3, :3])
+    ir_rotation = Rotation.from_matrix(ir_pose[:3, :3])
+    rotation_delta = pred_rotation.inv() * ir_rotation
+    blended_rotation = pred_rotation * Rotation.from_rotvec(
+        factor * rotation_delta.as_rotvec()
+    )
+    blended_pose[:3, :3] = blended_rotation.as_matrix()
+
+    return blended_pose
+
+
 def register_frame_pairs(idc1,
                          idc2,
                          frames_1,
@@ -480,7 +504,7 @@ def register_volumes(
         start_time = time.time()
         ref_idx_start = first_window_start + i
         ref_idx_end = ref_idx_start + window_size
-        print(f"Registering window {i + 1}: frames {ref_idx_start}-{ref_idx_end - 1}")
+        # print(f"Registering window {i + 1}: frames {ref_idx_start}-{ref_idx_end - 1}")
         (
             ir_transform,
             m_before_id,
@@ -505,9 +529,18 @@ def register_volumes(
         center_idx = first_registered + i
 
         if cfg_has(config, "image_registration.sitk.options") and \
-        "replace_pred" in cfg_get(config, "image_registration.sitk.options"):
+        "replace_pred" in cfg_get(config, "image_registration.sitk.options"): # factor 1.0: breaks everything, small factor: makes it slightly worse
 
-            pred_acc[center_idx] = ir_transform
+            replace_pred_factor = cfg_get(
+                config,
+                "image_registration.sitk.replace_pred_factor",
+            )
+            replace_pred_factor = 0.1 if replace_pred_factor is None else replace_pred_factor
+            pred_acc[center_idx] = blend_pose(
+                pred_acc[center_idx],
+                ir_transform,
+                replace_pred_factor,
+            )
 
         ir_transforms[center_idx] = ir_transform
         print("registered a frame")
