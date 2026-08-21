@@ -1,49 +1,49 @@
 === Error statistics ===
 Tx:
-  Mean second   : -0.0083
-  Mean first    : -0.0097
-  Mean second abs: 0.2438
-  Mean first abs: 0.2375
+  Mean GT       : -0.0083
+  Mean pred     : -0.0097
+  Mean GT abs   : 0.2438
+  Mean pred abs : 0.2375
   MAE           : 0.0580
   Mean error    : -0.0014
   Std deviation : 0.0766
 Ty:
-  Mean second   : -0.0012
-  Mean first    : -0.0010
-  Mean second abs: 0.0343
-  Mean first abs: 0.0283
+  Mean GT       : -0.0012
+  Mean pred     : -0.0010
+  Mean GT abs   : 0.0343
+  Mean pred abs : 0.0283
   MAE           : 0.0205
   Mean error    : 0.0002
   Std deviation : 0.0268
 Tz:
-  Mean second   : -0.0016
-  Mean first    : -0.0008
-  Mean second abs: 0.1979
-  Mean first abs: 0.1798
+  Mean GT       : -0.0016
+  Mean pred     : -0.0008
+  Mean GT abs   : 0.1979
+  Mean pred abs : 0.1798
   MAE           : 0.0693
   Mean error    : 0.0007
   Std deviation : 0.0902
 Rx:
-  Mean second   : 0.0023
-  Mean first    : 0.0018
-  Mean second abs: 0.0339
-  Mean first abs: 0.0182
+  Mean GT       : 0.0023
+  Mean pred     : 0.0018
+  Mean GT abs   : 0.0339
+  Mean pred abs : 0.0182
   MAE           : 0.0323
   Mean error    : -0.0005
   Std deviation : 0.0421
 Ry:
-  Mean second   : -0.0043
-  Mean first    : -0.0042
-  Mean second abs: 0.0308
-  Mean first abs: 0.0209
+  Mean GT       : -0.0043
+  Mean pred     : -0.0042
+  Mean GT abs   : 0.0308
+  Mean pred abs : 0.0209
   MAE           : 0.0255
   Mean error    : 0.0001
   Std deviation : 0.0331
 Rz:
-  Mean second   : 0.0034
-  Mean first    : 0.0032
-  Mean second abs: 0.0364
-  Mean first abs: 0.0219
+  Mean GT       : 0.0034
+  Mean pred     : 0.0032
+  Mean GT abs   : 0.0364
+  Mean pred abs : 0.0219
   MAE           : 0.0292
   Mean error    : -0.0002
   Std deviation : 0.0383
@@ -125,77 +125,77 @@ Rz
   bin=10 range=[0.07692, 0.59502] N=3475 mean=-0.005711 mean_abs=0.065152 std=0.074326
 
 === Bias statistics ===
-Tx: slope=-0.084166, intercept=-0.002105, R2=0.097
-Ty: slope=-0.343315, intercept=-0.000186, R2=0.322
-Tz: slope=-0.155954, intercept=0.000503, R2=0.176
-Rx: slope=-0.765020, intercept=0.001229, R2=0.682
-Ry: slope=-0.671620, intercept=-0.002765, R2=0.622
-Rz: slope=-0.612082, intercept=0.001885, R2=0.605
+Tx: slope=-0.084166, intercept=-0.002105
+Ty: slope=-0.343315, intercept=-0.000186
+Tz: slope=-0.155954, intercept=0.000503
+Rx: slope=-0.765020, intercept=0.001229
+Ry: slope=-0.671620, intercept=-0.002765
+Rz: slope=-0.612082, intercept=0.001885
 
 === Linear approximation statistics ===
 Tx
-  bin=1 N=3475 improved=16.95%
-  bin=2 N=3474 improved=30.69%
-  bin=3 N=3475 improved=36.78%
-  bin=4 N=3474 improved=39.29%
-  bin=5 N=3475 improved=38.79%
-  bin=6 N=3475 improved=42.91%
-  bin=7 N=3474 improved=46.69%
-  bin=8 N=3474 improved=50.23%
-  bin=9 N=3475 improved=61.38%
-  bin=10 N=3475 improved=81.76%
+  bin=1 [0.0000, 0.0548] N=3475 | Improved=16.95% | Avg improvement=20.10% | Avg worsening=5656927465.18% | Improved err/GT=176.59% | Worsened err/GT=5656928445.12% | Improved err/pred=1289.44% | Worsened err/pred=5656927576.49%
+  bin=2 [0.0548, 0.1068] N=3474 | Improved=30.69% | Avg improvement=25.32% | Avg worsening=203.74% | Improved err/GT=38.14% | Worsened err/GT=93.03% | Improved err/pred=1716.39% | Worsened err/pred=519.59%
+  bin=3 [0.1068, 0.1526] N=3475 | Improved=36.78% | Avg improvement=30.21% | Avg worsening=205.87% | Improved err/GT=26.89% | Worsened err/GT=56.98% | Improved err/pred=252.22% | Worsened err/pred=76.60%
+  bin=4 [0.1526, 0.1954] N=3474 | Improved=39.29% | Avg improvement=35.29% | Avg worsening=396.75% | Improved err/GT=22.39% | Worsened err/GT=42.04% | Improved err/pred=79.67% | Worsened err/pred=54.35%
+  bin=5 [0.1954, 0.2351] N=3475 | Improved=38.79% | Avg improvement=39.74% | Avg worsening=795.10% | Improved err/GT=18.18% | Worsened err/GT=34.96% | Improved err/pred=38.63% | Worsened err/pred=33.24%
+  bin=6 [0.2351, 0.2748] N=3475 | Improved=42.91% | Avg improvement=41.19% | Avg worsening=412.00% | Improved err/GT=16.08% | Worsened err/GT=29.52% | Improved err/pred=27.59% | Worsened err/pred=23.22%
+  bin=7 [0.2748, 0.3182] N=3474 | Improved=46.69% | Avg improvement=43.65% | Avg worsening=405.71% | Improved err/GT=14.59% | Worsened err/GT=24.66% | Improved err/pred=23.48% | Worsened err/pred=20.69%
+  bin=8 [0.3182, 0.3683] N=3474 | Improved=50.23% | Avg improvement=44.97% | Avg worsening=1379.16% | Improved err/GT=13.18% | Worsened err/GT=20.65% | Improved err/pred=19.80% | Worsened err/pred=18.04%
+  bin=9 [0.3683, 0.4370] N=3475 | Improved=61.38% | Avg improvement=46.40% | Avg worsening=827.45% | Improved err/GT=12.22% | Worsened err/GT=16.51% | Improved err/pred=18.17% | Worsened err/pred=14.87%
+  bin=10 [0.4370, 1.4032] N=3475 | Improved=81.76% | Avg improvement=40.48% | Avg worsening=884.29% | Improved err/GT=15.18% | Worsened err/GT=13.31% | Improved err/pred=22.92% | Worsened err/pred=12.39%
 Ty
-  bin=1 N=3475 improved=4.06%
-  bin=2 N=3474 improved=14.25%
-  bin=3 N=3475 improved=21.76%
-  bin=4 N=3474 improved=27.40%
-  bin=5 N=3475 improved=36.03%
-  bin=6 N=3474 improved=40.99%
-  bin=7 N=3475 improved=46.73%
-  bin=8 N=3474 improved=50.29%
-  bin=9 N=3475 improved=55.86%
-  bin=10 N=3475 improved=65.04%
+  bin=1 [0.0000, 0.0050] N=3475 | Improved=4.06% | Avg improvement=37.96% | Avg worsening=603648025.61% | Improved err/GT=47.35% | Worsened err/GT=603652532.05% | Improved err/pred=1398.73% | Worsened err/pred=603648810.35%
+  bin=2 [0.0050, 0.0102] N=3474 | Improved=14.25% | Avg improvement=38.12% | Avg worsening=162.20% | Improved err/GT=42.93% | Worsened err/GT=370.91% | Improved err/pred=533.34% | Worsened err/pred=353.94%
+  bin=3 [0.0102, 0.0156] N=3475 | Improved=21.76% | Avg improvement=38.95% | Avg worsening=275.46% | Improved err/GT=40.92% | Worsened err/GT=227.74% | Improved err/pred=760.03% | Worsened err/pred=501.16%
+  bin=4 [0.0156, 0.0212] N=3474 | Improved=27.40% | Avg improvement=39.70% | Avg worsening=499.89% | Improved err/GT=40.20% | Worsened err/GT=170.73% | Improved err/pred=504.49% | Worsened err/pred=650.29%
+  bin=5 [0.0212, 0.0276] N=3475 | Improved=36.03% | Avg improvement=39.46% | Avg worsening=501.16% | Improved err/GT=40.82% | Worsened err/GT=138.67% | Improved err/pred=650.13% | Worsened err/pred=529.57%
+  bin=6 [0.0276, 0.0349] N=3474 | Improved=40.99% | Avg improvement=40.73% | Avg worsening=625.96% | Improved err/GT=39.74% | Worsened err/GT=112.74% | Improved err/pred=711.63% | Worsened err/pred=834.15%
+  bin=7 [0.0349, 0.0437] N=3475 | Improved=46.73% | Avg improvement=41.72% | Avg worsening=593.69% | Improved err/GT=37.64% | Worsened err/GT=97.11% | Improved err/pred=524.91% | Worsened err/pred=450.83%
+  bin=8 [0.0437, 0.0547] N=3474 | Improved=50.29% | Avg improvement=43.98% | Avg worsening=10370.10% | Improved err/GT=34.82% | Worsened err/GT=77.36% | Improved err/pred=466.09% | Worsened err/pred=369.71%
+  bin=9 [0.0547, 0.0721] N=3475 | Improved=55.86% | Avg improvement=45.92% | Avg worsening=1755.19% | Improved err/GT=32.85% | Worsened err/GT=66.05% | Improved err/pred=1811.98% | Worsened err/pred=372.50%
+  bin=10 [0.0721, 0.2460] N=3475 | Improved=65.04% | Avg improvement=53.08% | Avg worsening=24158.87% | Improved err/GT=25.71% | Worsened err/GT=51.04% | Improved err/pred=195.84% | Worsened err/pred=682.21%
 Tz
-  bin=1 N=3475 improved=9.35%
-  bin=2 N=3474 improved=25.71%
-  bin=3 N=3475 improved=36.52%
-  bin=4 N=3474 improved=43.24%
-  bin=5 N=3475 improved=46.56%
-  bin=6 N=3474 improved=49.45%
-  bin=7 N=3475 improved=47.02%
-  bin=8 N=3474 improved=48.68%
-  bin=9 N=3475 improved=54.65%
-  bin=10 N=3475 improved=76.17%
+  bin=1 [0.0000, 0.0321] N=3475 | Improved=9.35% | Avg improvement=25.66% | Avg worsening=1343820735.33% | Improved err/GT=47.70% | Worsened err/GT=1343829136.49% | Improved err/pred=710.52% | Worsened err/pred=1343820911.64%
+  bin=2 [0.0321, 0.0648] N=3474 | Improved=25.71% | Avg improvement=24.85% | Avg worsening=94.53% | Improved err/GT=45.28% | Worsened err/GT=178.84% | Improved err/pred=412.45% | Worsened err/pred=268.97%
+  bin=3 [0.0648, 0.0999] N=3475 | Improved=36.52% | Avg improvement=24.56% | Avg worsening=320.95% | Improved err/GT=46.55% | Worsened err/GT=118.59% | Improved err/pred=498.51% | Worsened err/pred=328.24%
+  bin=4 [0.0999, 0.1363] N=3474 | Improved=43.24% | Avg improvement=29.48% | Avg worsening=543.04% | Improved err/GT=40.72% | Worsened err/GT=86.28% | Improved err/pred=420.04% | Worsened err/pred=588.16%
+  bin=5 [0.1363, 0.1751] N=3475 | Improved=46.56% | Avg improvement=33.43% | Avg worsening=417.63% | Improved err/GT=35.31% | Worsened err/GT=67.10% | Improved err/pred=432.72% | Worsened err/pred=217.35%
+  bin=6 [0.1751, 0.2172] N=3474 | Improved=49.45% | Avg improvement=38.22% | Avg worsening=726.37% | Improved err/GT=29.50% | Worsened err/GT=53.95% | Improved err/pred=162.00% | Worsened err/pred=163.17%
+  bin=7 [0.2172, 0.2639] N=3475 | Improved=47.02% | Avg improvement=39.67% | Avg worsening=1054.77% | Improved err/GT=26.15% | Worsened err/GT=42.33% | Improved err/pred=110.08% | Worsened err/pred=73.82%
+  bin=8 [0.2639, 0.3213] N=3474 | Improved=48.68% | Avg improvement=48.30% | Avg worsening=1249.53% | Improved err/GT=19.15% | Worsened err/GT=34.19% | Improved err/pred=57.91% | Worsened err/pred=43.77%
+  bin=9 [0.3213, 0.3952] N=3475 | Improved=54.65% | Avg improvement=52.81% | Avg worsening=1619.15% | Improved err/GT=15.17% | Worsened err/GT=25.81% | Improved err/pred=34.21% | Worsened err/pred=34.40%
+  bin=10 [0.3952, 1.2951] N=3475 | Improved=76.17% | Avg improvement=53.68% | Avg worsening=1650.85% | Improved err/GT=14.10% | Worsened err/GT=19.80% | Improved err/pred=24.11% | Worsened err/pred=23.96%
 Rx
-  bin=1 N=3475 improved=1.90%
-  bin=2 N=3474 improved=6.76%
-  bin=3 N=3475 improved=11.25%
-  bin=4 N=3474 improved=14.91%
-  bin=5 N=3475 improved=20.26%
-  bin=6 N=3475 improved=25.58%
-  bin=7 N=3474 improved=30.89%
-  bin=8 N=3474 improved=35.49%
-  bin=9 N=3475 improved=44.17%
-  bin=10 N=3475 improved=51.57%
+  bin=1 [0.0000, 0.0047] N=3475 | Improved=1.90% | Avg improvement=51.55% | Avg worsening=10899996599.86% | Improved err/GT=72.50% | Worsened err/GT=10900005406.17% | Improved err/pred=590.72% | Worsened err/pred=10899996275.61%
+  bin=2 [0.0047, 0.0097] N=3474 | Improved=6.76% | Avg improvement=47.94% | Avg worsening=1466.51% | Improved err/GT=44.63% | Worsened err/GT=1041.47% | Improved err/pred=653.23% | Worsened err/pred=737.69%
+  bin=3 [0.0097, 0.0148] N=3475 | Improved=11.25% | Avg improvement=48.25% | Avg worsening=2246.82% | Improved err/GT=43.96% | Worsened err/GT=597.22% | Improved err/pred=1744.36% | Worsened err/pred=665.38%
+  bin=4 [0.0148, 0.0203] N=3474 | Improved=14.91% | Avg improvement=47.66% | Avg worsening=2196.99% | Improved err/GT=43.55% | Worsened err/GT=450.71% | Improved err/pred=1566.19% | Worsened err/pred=865.94%
+  bin=5 [0.0203, 0.0264] N=3475 | Improved=20.26% | Avg improvement=48.28% | Avg worsening=1490.79% | Improved err/GT=43.58% | Worsened err/GT=355.82% | Improved err/pred=1168.28% | Worsened err/pred=1083.02%
+  bin=6 [0.0264, 0.0334] N=3475 | Improved=25.58% | Avg improvement=49.57% | Avg worsening=905.79% | Improved err/GT=42.35% | Worsened err/GT=299.42% | Improved err/pred=1565.87% | Worsened err/pred=1278.04%
+  bin=7 [0.0334, 0.0419] N=3474 | Improved=30.89% | Avg improvement=48.77% | Avg worsening=2507.88% | Improved err/GT=42.42% | Worsened err/GT=258.53% | Improved err/pred=1430.09% | Worsened err/pred=1628.64%
+  bin=8 [0.0419, 0.0533] N=3474 | Improved=35.49% | Avg improvement=50.02% | Avg worsening=1651.47% | Improved err/GT=42.24% | Worsened err/GT=226.00% | Improved err/pred=2579.67% | Worsened err/pred=1612.99%
+  bin=9 [0.0533, 0.0718] N=3475 | Improved=44.17% | Avg improvement=49.17% | Avg worsening=995.46% | Improved err/GT=43.52% | Worsened err/GT=194.76% | Improved err/pred=1535.84% | Worsened err/pred=2122.47%
+  bin=10 [0.0718, 0.6201] N=3475 | Improved=51.57% | Avg improvement=48.75% | Avg worsening=1041.70% | Improved err/GT=43.43% | Worsened err/GT=171.08% | Improved err/pred=3871.58% | Worsened err/pred=10139.99%
 Ry
-  bin=1 N=3475 improved=2.71%
-  bin=2 N=3474 improved=4.09%
-  bin=3 N=3475 improved=8.43%
-  bin=4 N=3474 improved=11.92%
-  bin=5 N=3475 improved=15.60%
-  bin=6 N=3475 improved=21.41%
-  bin=7 N=3474 improved=30.66%
-  bin=8 N=3474 improved=39.21%
-  bin=9 N=3475 improved=51.45%
-  bin=10 N=3475 improved=69.90%
+  bin=1 [0.0000, 0.0047] N=3475 | Improved=2.71% | Avg improvement=45.96% | Avg worsening=17684234159.54% | Improved err/GT=157.25% | Worsened err/GT=17684250818.46% | Improved err/pred=281.16% | Worsened err/pred=17684234346.67%
+  bin=2 [0.0047, 0.0097] N=3474 | Improved=4.09% | Avg improvement=47.13% | Avg worsening=415.71% | Improved err/GT=53.56% | Worsened err/GT=846.57% | Improved err/pred=297.06% | Worsened err/pred=410.15%
+  bin=3 [0.0097, 0.0149] N=3475 | Improved=8.43% | Avg improvement=50.85% | Avg worsening=2200.23% | Improved err/GT=41.47% | Worsened err/GT=478.96% | Improved err/pred=475.24% | Worsened err/pred=418.57%
+  bin=4 [0.0149, 0.0201] N=3474 | Improved=11.92% | Avg improvement=50.22% | Avg worsening=1083.22% | Improved err/GT=39.77% | Worsened err/GT=346.11% | Improved err/pred=928.13% | Worsened err/pred=465.01%
+  bin=5 [0.0201, 0.0260] N=3475 | Improved=15.60% | Avg improvement=48.36% | Avg worsening=2114.12% | Improved err/GT=40.13% | Worsened err/GT=266.12% | Improved err/pred=2340.25% | Worsened err/pred=2113.21%
+  bin=6 [0.0260, 0.0323] N=3475 | Improved=21.38% | Avg improvement=49.49% | Avg worsening=2128.52% | Improved err/GT=37.18% | Worsened err/GT=210.93% | Improved err/pred=692.76% | Worsened err/pred=568.53%
+  bin=7 [0.0323, 0.0396] N=3474 | Improved=30.66% | Avg improvement=50.33% | Avg worsening=3111.21% | Improved err/GT=35.81% | Worsened err/GT=171.15% | Improved err/pred=676.61% | Worsened err/pred=549.14%
+  bin=8 [0.0396, 0.0487] N=3474 | Improved=39.21% | Avg improvement=51.37% | Avg worsening=1362.47% | Improved err/GT=34.90% | Worsened err/GT=147.94% | Improved err/pred=1812.82% | Worsened err/pred=680.88%
+  bin=9 [0.0487, 0.0634] N=3475 | Improved=51.45% | Avg improvement=54.53% | Avg worsening=1163.23% | Improved err/GT=32.29% | Worsened err/GT=128.10% | Improved err/pred=616.69% | Worsened err/pred=684.05%
+  bin=10 [0.0634, 0.2451] N=3475 | Improved=69.90% | Avg improvement=54.48% | Avg worsening=134.79% | Improved err/GT=33.97% | Worsened err/GT=113.64% | Improved err/pred=510.07% | Worsened err/pred=1885.31%
 Rz
-  bin=1 N=3475 improved=4.29%
-  bin=2 N=3474 improved=8.87%
-  bin=3 N=3475 improved=16.03%
-  bin=4 N=3474 improved=21.30%
-  bin=5 N=3475 improved=28.26%
-  bin=6 N=3474 improved=34.46%
-  bin=7 N=3475 improved=41.38%
-  bin=8 N=3474 improved=47.52%
-  bin=9 N=3475 improved=54.42%
-  bin=10 N=3475 improved=62.94%
+  bin=1 [0.0000, 0.0050] N=3475 | Improved=4.29% | Avg improvement=45.38% | Avg worsening=10374991702.94% | Improved err/GT=147.98% | Worsened err/GT=10374999693.60% | Improved err/pred=228.53% | Worsened err/pred=10374991897.44%
+  bin=2 [0.0050, 0.0105] N=3474 | Improved=8.87% | Avg improvement=42.57% | Avg worsening=486.06% | Improved err/GT=53.01% | Worsened err/GT=593.61% | Improved err/pred=421.86% | Worsened err/pred=453.40%
+  bin=3 [0.0105, 0.0159] N=3475 | Improved=16.03% | Avg improvement=44.10% | Avg worsening=1269.52% | Improved err/GT=46.49% | Worsened err/GT=359.16% | Improved err/pred=2932.59% | Worsened err/pred=687.68%
+  bin=4 [0.0159, 0.0217] N=3474 | Improved=21.30% | Avg improvement=48.90% | Avg worsening=1372.36% | Improved err/GT=39.21% | Worsened err/GT=274.90% | Improved err/pred=757.50% | Worsened err/pred=635.59%
+  bin=5 [0.0217, 0.0283] N=3475 | Improved=28.26% | Avg improvement=46.02% | Avg worsening=1073.64% | Improved err/GT=42.92% | Worsened err/GT=224.36% | Improved err/pred=1298.90% | Worsened err/pred=707.96%
+  bin=6 [0.0283, 0.0358] N=3474 | Improved=34.46% | Avg improvement=45.66% | Avg worsening=1777.14% | Improved err/GT=42.33% | Worsened err/GT=185.98% | Improved err/pred=2132.77% | Worsened err/pred=863.43%
+  bin=7 [0.0358, 0.0448] N=3475 | Improved=41.38% | Avg improvement=45.99% | Avg worsening=800.29% | Improved err/GT=42.16% | Worsened err/GT=163.87% | Improved err/pred=1132.90% | Worsened err/pred=976.90%
+  bin=8 [0.0448, 0.0571] N=3474 | Improved=47.52% | Avg improvement=46.20% | Avg worsening=1529.65% | Improved err/GT=40.99% | Worsened err/GT=150.88% | Improved err/pred=1031.06% | Worsened err/pred=27180.57%
+  bin=9 [0.0571, 0.0769] N=3475 | Improved=54.42% | Avg improvement=48.24% | Avg worsening=1019.14% | Improved err/GT=39.73% | Worsened err/GT=134.76% | Improved err/pred=2112.80% | Worsened err/pred=1728.29%
+  bin=10 [0.0769, 0.5950] N=3475 | Improved=62.94% | Avg improvement=50.22% | Avg worsening=8594.58% | Improved err/GT=37.36% | Worsened err/GT=114.10% | Improved err/pred=962.71% | Worsened err/pred=1636.15%
