@@ -53,6 +53,7 @@ def register_2d(
     eps = 1e-12 # prevent zero divs
     metric_change_forward = (abs(metric_after_forward - metric_before_forward) / (abs(metric_before_forward) + eps)) * 100.0
     valid = (metric_change_forward <= max_metric_change)
+    valid = True
 
     # --------------------------------------------------------
     # cross check, backwards registration
@@ -176,7 +177,7 @@ def sample_pairs_by_step(
     np.ndarray,
     np.ndarray,
 ]:
-    n = len(frames) - 1 # last frame has no inbetween transform to next frame
+    n = len(frames)# - 1 # last frame has no inbetween transform to next frame
     if step_size > n or n < 2:
         raise ValueError(
             f"Invalid number of frames: {n}"

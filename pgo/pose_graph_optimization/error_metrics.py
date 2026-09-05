@@ -81,6 +81,8 @@ def save_results(
         if len(metrics_after_pgo[0]) > 0:
 
             f.write("after pgo:\n\n")
+            print("metrics after pgo:")
+            print(metrics_after_pgo)
 
             for metrics in metrics_after_pgo:
                 metrics_df = pd.DataFrame(metrics).mean()

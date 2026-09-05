@@ -4,37 +4,51 @@ from sklearn.metrics.pairwise import cosine_similarity
 import networkx as nx
 
 from .image_registration import register_2d
+from .utils import inbetween_to_accumulated
+from src.utils.pose import matrix_to_pose_vector
 
 
 def detect_loop_closures(
-    feature_vectors,
+    pred_poses,
     frames,
     transforms,
-    image_registration_cfg,
+    gt_transforms=None,
     method="nearest_neighbor",
     stepsize=10,
     temporal_offset=50,
-    threshold=0.7,
+    threshold=0.9,
     n_neighbors=1,
-    loop_consistency_check=True
+    loop_consistency_check=False,
+    registration_options="roi",
+    plot_callback=None,
+    registration_cache=None,
+    verbose=True,
 ):
-    feature_vectors = np.asarray(feature_vectors, dtype=np.float32)
+    pose_vectors = np.asarray(matrix_to_pose_vector(pred_poses), dtype=np.float32)
+    transforms = np.asarray(transforms)
+    accumulated_transforms = inbetween_to_accumulated(transforms)
 
-    n_frames = len(feature_vectors)
+    if gt_transforms is not None:
+        gt_transforms = np.asarray(gt_transforms)
+        accumulated_gt_transforms = inbetween_to_accumulated(gt_transforms)
+    else:
+        accumulated_gt_transforms = accumulated_transforms
+
+    n_frames = len(pose_vectors)
 
     loop_closures = []
-    seen_pairs = set()
-
-    # currently yields potential LCs for almost every frame
     if method == "cosine_similarity":
 
         for i in range(0, n_frames, stepsize):
 
-            query = feature_vectors[i].reshape(1, -1)
+            query = pose_vectors[i].reshape(1, -1)
 
             for j in range(i + temporal_offset, n_frames, stepsize):
 
-                candidate = feature_vectors[j].reshape(1, -1)
+                if j <= i:
+                    continue
+
+                candidate = pose_vectors[j].reshape(1, -1)
 
                 score = cosine_similarity(query, candidate)[0, 0]
 
@@ -43,71 +57,47 @@ def detect_loop_closures(
 
                 if score < threshold:
                     continue
-                #print(f"lc score: {score}")
+                print(f"lc score: {score}")
 
-                transform, reg_score, rating = register_2d(
-                    frame_i=frames[i],
-                    frame_j=frames[j],
-                    ref_transform=transforms,
-                    **image_registration_cfg
+                candidate = evaluate_candidate(
+                    i, int(j), score, frames, accumulated_transforms,
+                    accumulated_gt_transforms, registration_options,
+                    plot_callback, registration_cache, verbose,
                 )
-
-                if rating:
-                    loop_closures.append(
-                        {
-                            "source_idx": i,
-                            "target_idx": int(j),
-                            "combined_score": (score + reg_score) / 2,
-                            "transform": transform,
-                        }
-                    )
+                if candidate is not None:
+                    loop_closures.append(candidate)
 
     elif method == "nearest_neighbor":
 
-        nn = NearestNeighbors(n_neighbors = n_neighbors + 1, metric="cosine")
-        nn.fit(feature_vectors)
+        nn = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="cosine")
+        nn.fit(pose_vectors)
 
         for i in range(0, n_frames, stepsize):
 
             distances, indices = nn.kneighbors(
-                feature_vectors[i].reshape(1, -1)
+                pose_vectors[i].reshape(1, -1)
             )
 
             for dist, j in zip(distances[0], indices[0]):
 
-                if i == j:
+                if j <= i:
                     continue
 
-                if abs(i - j) < temporal_offset:
+                if j - i < temporal_offset:
                     continue
 
-                pair = tuple(sorted((i, int(j))))
-
-                if pair in seen_pairs:
-                    continue
-
-                seen_pairs.add(pair)
                 score = 1.0 - dist
 
                 if score < threshold:
                     continue
 
-                transform, reg_score, rating = register_2d(
-                    frame_i=frames[i],
-                    frame_j=frames[j],
-                    ref_transform=transforms[i:j-1],
-                    **image_registration_cfg
+                candidate = evaluate_candidate(
+                    i, int(j), score, frames, accumulated_transforms,
+                    accumulated_gt_transforms, registration_options,
+                    plot_callback, registration_cache, verbose,
                 )
-
-                if rating:
-                    loop_closures.append(
-                        {
-                            "source_idx": i,
-                            "target_idx": int(j),
-                            "combined_score": (score + reg_score) / 2,
-                            "transform": transform,
-                        }
-                    )
+                if candidate is not None:
+                    loop_closures.append(candidate)
 
     else:
         raise NotImplementedError(
@@ -121,8 +111,78 @@ def detect_loop_closures(
         # print(cycles)
 
         #TODO finish
-
     return loop_closures
+
+
+def evaluate_candidate(
+    source_idx,
+    target_idx,
+    descriptor_score,
+    frames,
+    accumulated_transforms,
+    accumulated_gt_transforms,
+    registration_options,
+    plot_callback=None,
+    registration_cache=None,
+    verbose=True,
+):
+    pair = (source_idx, target_idx)
+
+    if registration_cache is not None and pair in registration_cache:
+        registration = registration_cache[pair]
+    else:
+        registration = register_2d(
+            frame_i=frames[source_idx],
+            frame_j=frames[target_idx],
+            ref_transform=(
+                np.linalg.inv(accumulated_transforms[source_idx])
+                @ accumulated_transforms[target_idx]
+            ),
+            gt_transform=(
+                np.linalg.inv(accumulated_gt_transforms[source_idx])
+                @ accumulated_gt_transforms[target_idx]
+            ),
+            sitk={
+                "metric": "mi",
+                "optimizer": "gradient",
+                "options": registration_options,
+            },
+        )
+        if registration_cache is not None:
+            registration_cache[pair] = registration
+
+    (
+        transform,
+        confidence,
+        valid,
+        metric_before_identity,
+        metric_before_gt,
+        metric_before_pred,
+        metric_after,
+    ) = registration
+
+    if verbose:
+        print(
+            f"LC frames {source_idx}->{target_idx}: "
+            f"descriptor={descriptor_score:.4f}, "
+            f"before_identity={metric_before_identity:.4f}, "
+            f"before_gt={metric_before_gt:.4f}, "
+            f"before_pred={metric_before_pred:.4f}, "
+            f"after={metric_after:.4f}, valid={valid}"
+        )
+
+    if plot_callback is not None:
+        plot_callback(source_idx, target_idx)
+
+    if not valid:
+        return None
+
+    return {
+        "source_idx": source_idx,
+        "target_idx": target_idx,
+        "combined_score": (descriptor_score + confidence) / 2,
+        "transform": transform,
+    }
 
 
 def find_cycles(loop_closures):

@@ -24,6 +24,7 @@ from pose_graph_optimization.image_registration import *
 # from error_evals import *
 from src.utils.pose import *
 from src.evaluator import *
+from pose_graph_optimization.defines import LINEAR_APPROXIMATION_PROFILES
 
 
 def parse_arguments():
@@ -59,23 +60,13 @@ def cfg_get(config, path: str):
     return OmegaConf.select(config, path) if cfg_has(config, path) else None
 
 
-def get_execution_flags(config) -> dict:
-
-    options = cfg_get(config, "general.options") or []
-
-    return {
-        "pgo": "pgo" in options,
-        "noise_constraints": "noise_constraints" in options,
-        "la_replace": "la_replace" in options,
-    }
-
-
 def init_results() -> dict:
 
     return {
         "pgo": {
             "drift_metrics_original": [], "drift_metrics_after_pgo": [],
             "ddf_metrics_original": [], "ddf_metrics_after_pgo": [],
+            "pgo execution time": [],
             "graph": None, "initial": None, "optimized": None,
         },
         "ir": {
@@ -190,7 +181,13 @@ def plot_motion_vs_error(est: np.ndarray, gt: np.ndarray, title: str = "Error ma
     return fig
 
 
-def plot_trajectories(trajectories, labels=None, colors=None, title: str = "Trajectories"):
+def plot_trajectories(
+    trajectories,
+    labels=None,
+    colors=None,
+    title: str = "Trajectories",
+    highlight_indices=None,
+):
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
@@ -205,7 +202,19 @@ def plot_trajectories(trajectories, labels=None, colors=None, title: str = "Traj
         ax.scatter(xs[0], ys[0], zs[0], color=colors[i])
         ax.scatter(xs[-1], ys[-1], zs[-1], color=colors[i], marker="s")
 
-    ax.set_title("Pose Graph Trajectories")
+        if highlight_indices is not None:
+            indices = np.asarray(highlight_indices, dtype=int)
+            valid_indices = indices[(indices >= 0) & (indices < len(xs))]
+            ax.scatter(
+                xs[valid_indices],
+                ys[valid_indices],
+                zs[valid_indices],
+                color="red",
+                s=45,
+                depthshade=False,
+            )
+
+    ax.set_title(title)
     ax.legend()
     fig.canvas.manager.set_window_title(title)
     # plt.show()
@@ -243,6 +252,7 @@ def load_scan_data(input_pred: str, el: str, sweep_index: int, config):
 
         nr_of_frames = cfg_get(config, "general.nr_frames")
         nr_of_frames = len(f["images"]) if nr_of_frames is None else nr_of_frames# + 1
+        needs_images = cfg_has(config, "image_registration") or cfg_has(config, "loop_closure")
 
         pred_acc = np.array(f["pred_tracking_glob"][:nr_of_frames])  # normalized acc world poses
         pred_inbetween = np.array(f["pred_tracking_loc"][:nr_of_frames])  # relative poses Ti->j
@@ -259,15 +269,14 @@ def load_scan_data(input_pred: str, el: str, sweep_index: int, config):
             gt_inbetween = accumulated_to_inbetween(gt_acc)
 
         calibration_matrix = np.round(np.array(f["pixel_to_image"]), 4)
-        fvs = np.array(f["fvs"])
-        frames = np.array(f["images"][:nr_of_frames])
+        frames = np.array(f["images"][:nr_of_frames]) if needs_images else None
         h, w = np.array(f["dimensions"])[:2]
 
     return {
         "sweep_name": f"sweep_{sweep_index}",
         "pred_acc": pred_acc, "pred_inbetween": pred_inbetween,
         "gt_acc": gt_acc, "gt_inbetween": gt_inbetween,
-        "calibration_matrix": calibration_matrix, "fvs": fvs, "frames": frames,
+        "calibration_matrix": calibration_matrix, "frames": frames,
         "image_shape_hw": (w, h),
     }
 
@@ -276,33 +285,11 @@ def load_scan_data(input_pred: str, el: str, sweep_index: int, config):
 # PGO
 # ==========================================================================
 
-def init_pose_graph(pred_acc: np.ndarray, pred_inbetween: np.ndarray, flags: dict):
-
-    if flags["la_replace"]:
-
-        pred_inbetween = linear_approximation(pred_inbetween, 0.9, 0.8)
-        # pred_inbetween = estimate_gt(pred_inbetween)
-        pred_acc = inbetween_to_accumulated(pred_inbetween)
-        # -> doesn't help as worsening outweighs improvement
+def init_pose_graph(pred_acc: np.ndarray, pred_inbetween: np.ndarray):
 
     pred_graph = PoseGraph(poses=pred_acc, constraints=pred_inbetween, initial_pose=pred_acc[0])
 
     return pred_graph, pred_acc, pred_inbetween
-
-
-def run_loop_closure(pred_graph, fvs: np.ndarray, frames: np.ndarray, pred_inbetween: np.ndarray, config):
-
-    loop_closures = detect_loop_closures(
-        feature_vectors=fvs, frames=frames, transforms=pred_inbetween,
-        image_registration_cfg=config.image_registration, **config.loop_closure,
-    )
-
-    for lc in loop_closures:
-
-        pred_graph.add_constraint(
-            lc["source_idx"], lc["target_idx"], lc["transform"],
-            registration_noise_model(confidence=lc["combined_score"], ref_sigma=config.general.ref_values_sigma),
-        )
 
 
 def run_optical_flow(pred_graph, config):
@@ -313,7 +300,13 @@ def run_optical_flow(pred_graph, config):
 
 def run_noise_constraints(pred_graph, pred_inbetween: np.ndarray, config):
 
-    pred_inbetween_la = linear_approximation(pred_inbetween, 0.9, 0.8)
+    quantile, scale = get_linear_approximation_parameters(config)
+    pred_inbetween_la = linear_approximation(
+        pred_inbetween,
+        quantile,
+        scale,
+        *get_linear_approximation_profile(config),
+    )
 
     for i, transform in enumerate(pred_inbetween_la[1:-1]):
 
@@ -342,28 +335,21 @@ def get_noise(pred_inbetween):
 
 def linear_approximation(
     pred_inbetween,
-    quantile=0.9,
-    scale=0.8,
+    quantile,
+    scale,
+    slopes=None,
+    intercepts=None,
     max_factor=10.0,
 ):
 
-    SLOPE = np.array([
-        -0.084166,
-        -0.343315,
-        -0.155954,
-        -0.765020,
-        -0.671620,
-        -0.612082,
-    ])
+    if slopes is None or intercepts is None:
 
-    INTERCEPT = np.array([
-        -0.002105,
-        -0.000186,
-         0.000503,
-         0.001229,
-        -0.002765,
-         0.001885,
-    ])
+        raise ValueError(
+            "Linear approximation requires explicit slopes and intercepts."
+        )
+
+    slopes = np.asarray(slopes)
+    intercepts = np.asarray(intercepts)
 
     # LA correction for large values, as these benefit the most from it
     pred_inbetween_vector = np.stack(
@@ -385,8 +371,8 @@ def linear_approximation(
         # la
         la = (
             scale *
-            (pred - INTERCEPT[dof]) /
-            (1.0 + SLOPE[dof])
+            (pred - intercepts[dof]) /
+            (1.0 + slopes[dof])
         )
 
         # only keep reasonable corrections (doesn't help)
@@ -399,11 +385,50 @@ def linear_approximation(
             pred,
         )
 
-        break  # only x
+        # break  # only x
 
     return np.stack(
         [pose_vector_to_matrix(v) for v in pred_inbetween_vector]
     )
+
+
+def get_linear_approximation_profile(config):
+
+    profile_name = cfg_get(config, "linear_approximation.profile")
+
+    if profile_name is None:
+
+        raise ValueError(
+            "Linear approximation is enabled, but "
+            "linear_approximation.profile is missing."
+        )
+
+    try:
+
+        return LINEAR_APPROXIMATION_PROFILES[profile_name]
+
+    except KeyError as error:
+
+        available = ", ".join(sorted(LINEAR_APPROXIMATION_PROFILES))
+        raise ValueError(
+            f"Unknown linear approximation profile '{profile_name}'. "
+            f"Available profiles: {available}"
+        ) from error
+
+
+def get_linear_approximation_parameters(config):
+
+    quantile = cfg_get(config, "linear_approximation.quantile")
+    scale = cfg_get(config, "linear_approximation.scale")
+
+    if quantile is None or scale is None:
+
+        raise ValueError(
+            "Linear approximation requires "
+            "linear_approximation.quantile and linear_approximation.scale."
+        )
+
+    return quantile, scale
 
 
 # ==========================================================================
@@ -461,7 +486,8 @@ def register_frame_pairs(idc1,
                              frame_j=frames_2[i],
                              ref_transform=ir_ref[i + 1], # skip identity
                              gt_transform=ir_gt[i + 1],
-                             **config.image_registration)
+                             sitk=config.image_registration.sitk,
+                             **config.image_registration.get("register_2d", {}))
 
         confidences.append(confidence)
         ir_metrics["metric_before"].append(m_before_id)
@@ -650,9 +676,7 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
         scan["calibration_matrix"], scan["image_shape_hw"], mode="5pt-landmark",
     ))
 
-    confidences = np.ones(pred_acc.shape)
-
-    return counter, ir["transforms"]["ir_transforms"], idc1, idc2, confidences
+    return counter, ir_transforms, idc1, idc2, confidences
 
 
 def create_ir_general_plots(results: dict, config):
@@ -748,7 +772,7 @@ def save_all_results(results: dict, config):
         output_dir=f"{config.dirs.output_dir}/results",
         graph=pgo["graph"], initial=pgo["initial"], optimized=pgo["optimized"],
         metrics_original=[pgo["drift_metrics_original"], pgo["ddf_metrics_original"]],
-        metrics_after_pgo=[pgo["drift_metrics_after_pgo"], pgo["ddf_metrics_after_pgo"]],
+        metrics_after_pgo=[pgo["drift_metrics_after_pgo"], pgo["ddf_metrics_after_pgo"], pgo["pgo execution time"]],
         ir_metrics=[ir["metrics"], ir["drift_metrics_after_ir"], ir["ddf_metrics_after_ir"]],
         figs_individual=ir["figs_individual"], figs_general=ir["figs_general"],
     )
@@ -767,7 +791,6 @@ def main():
 
     # load data
     input_pred = cfg_require(config, "dirs.input_pred")
-    flags = get_execution_flags(config)
     data, nr_of_scans = get_scan_list(config, input_pred)
 
     # init
@@ -782,20 +805,46 @@ def main():
             continue
 
         pred_acc, pred_inbetween = scan["pred_acc"], scan["pred_inbetween"]
+        gt_acc, gt_inbetween = scan["gt_acc"], scan["gt_inbetween"]
         pred_graph = None
+        ref_sigma = cfg_get(config, "pgo.ref_values_sigma") or 1e-2
+
+        if "la_replace" in (cfg_get(config, "general.options") or []):
+
+            quantile, scale = get_linear_approximation_parameters(config)
+            pred_inbetween = linear_approximation(
+                pred_inbetween,
+                quantile,
+                scale,
+                *get_linear_approximation_profile(config),
+            )
+            pred_acc = inbetween_to_accumulated(pred_inbetween)
 
         # init graph and PGO
-        if flags["pgo"]:
+        if cfg_has(config, "pgo"):
 
-            pred_graph, pred_acc, pred_inbetween = init_pose_graph(pred_acc, pred_inbetween, flags)
+            pred_graph, pred_acc, pred_inbetween = init_pose_graph(pred_acc, pred_inbetween)
 
             # LC
             if cfg_has(config, "loop_closure"):
 
-                loop_closures = detect_loop_closures(feature_vectors=scan["fvs"],
+                def show_loop_closure(source_idx, target_idx):
+
+                    fig = plot_trajectories(
+                        [extract_positions(gt_acc)],
+                        labels=["GT"],
+                        colors=["blue"],
+                        highlight_indices=(source_idx, target_idx),
+                        title=f"Loop closure: frame {source_idx} -> {target_idx}",
+                    )
+                    # plt.show()
+                    plt.close(fig)
+
+                loop_closures = detect_loop_closures(pred_poses=pred_acc,
                                                      frames=scan["frames"],
                                                      transforms=pred_inbetween,
-                                                     image_registration_cfg=config.image_registration,
+                                                     gt_transforms=scan["gt_inbetween"],
+                                                     plot_callback=show_loop_closure,
                                                      **config.loop_closure)
 
                 for lc in loop_closures:
@@ -804,22 +853,29 @@ def main():
                         lc["source_idx"],
                         lc["target_idx"],
                         lc["transform"],
-                        registration_noise_model(confidence=lc["combined_score"], ref_sigma=config.general.ref_values_sigma))
+                        registration_noise_model(confidence=lc["combined_score"],
+                                                 ref_sigma=ref_sigma),
+                    )
 
             # OF
-            if cfg_has(config, "loop_closure"):
+            if cfg_has(config, "optical_flow"):
 
                 pass
 
             # noise constraints
-            if flags["noise_constraints"]:
+            if "noise_constraints" in (cfg_get(config, "pgo.options") or []):
 
-                pred_inbetween_la = linear_approximation(pred_inbetween, 0.9, 0.8)
+                quantile, scale = get_linear_approximation_parameters(config)
+                pred_inbetween_la = linear_approximation(
+                    pred_inbetween,
+                    quantile,
+                    scale,
+                    *get_linear_approximation_profile(config),
+                )
 
                 for i, transform in enumerate(pred_inbetween_la[1:-1]):
 
                     pred_graph.add_constraint(node_i=i, node_j=i + 1, transform=transform)
-                # -> bringt trotzdem keine Verbesserung
 
         # IR
         if cfg_has(config, "image_registration"):
@@ -834,32 +890,40 @@ def main():
                                                    config,
                                                    results,
                                                    counter=counter)
-            print(f"total global: {time.time() - start}")
+            # print(f"total global: {time.time() - start}")
             # breakpoint()
 
             # add IR contraints
-            if flags["pgo"]:
+            if cfg_has(config, "pgo"):
 
                 stride = cfg_get(config, "general.counter") or 1
-                ref_sigma = cfg_get(config, "general.ref_values_sigma") or 1e-2
+                ref_sigma = ref_sigma
 
                 for i, _ in enumerate(ir_transforms):
+
+                    if i == 0 or i - 1 >= len(idc1):
+                        continue
 
                     counter += 1
                     if counter % stride == 0:
 
                         pred_graph.add_constraint(
-                            node_i=idc1[i],
-                            node_j=idc2[i],
+                            node_i=idc1[i - 1],
+                            node_j=idc2[i - 1],
                             transform=ir_transforms[i],
-                            ref_sigma=registration_noise_model(confidence=confidences[i],ref_sigma=ref_sigma))
+                            noise_sigma=registration_noise_model(
+                                confidence=confidences[i - 1],
+                                ref_sigma=ref_sigma,
+                            ))
 
         # optimize graph
         optimized_pred = None
 
-        if flags["pgo"]:
+        if cfg_has(config, "pgo"):
 
+            start = time.time()
             results["pgo"]["graph"], _, pred_optimized = pred_graph.build_graph()
+            results["pgo"]["pgo execution time"].append({"pgo execution time": time.time() - start})
             optimized_pred = gtsam_to_numpy(pred_optimized)
 
         # retrieve (pgo) results
@@ -867,7 +931,7 @@ def main():
                                  pred_acc,
                                  pred_inbetween,
                                  results,
-                                 flags["pgo"],
+                                 cfg_has(config, "pgo"),
                                  optimized_pred)
         
         results["pgo"]["initial"] = pred_acc

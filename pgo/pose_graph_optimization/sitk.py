@@ -41,8 +41,9 @@ def sitk_2d_register(
         frame_j, _ = crop_center_frames(frame_j, (0.5, 0.5))
 
     ## images
-    fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
-    moving = sitk.GetImageFromArray(frame_j.astype(np.float32))
+    # fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
+    moving = sitk.GetImageFromArray(frame_i.astype(np.float32))
+    fixed = sitk.GetImageFromArray(frame_j.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
 
     if "roi" in options:
         roi_size, roi_index = get_center_roi_params(fixed.GetSize(), (0.5, 0.5))
@@ -152,11 +153,12 @@ def sitk_2d_register(
         image_plot(registered_image_ir, title="ir transform")
         plt.show()
 
-    print("rotation determinants:", np.linalg.det(ref_transform))
-    print(f"image size: {fixed.GetSize()}")
+    # print("rotation determinants:", np.linalg.det(ref_transform))
+    # print(f"image size: {fixed.GetSize()}")
 
     return (
-        transform_reg_inv,
+        # transform_reg_inv,
+        sitk_to_3dof(transform_reg),
         float(metric_before_identity),
         float(metric_before_gt),
         float(metric_before_pred),
