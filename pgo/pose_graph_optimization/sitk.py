@@ -189,7 +189,7 @@ def sitk_3d_register( # benutzt alle 20 Kerne
         volume_offset_y = volume_offset_x = 0
         slice_offset_y = slice_offset_x = 0
 
-    volume_origin = (
+    volume_origin_xy = (
         ORIGIN_X + volume_offset_x * SPACING_X,
         ORIGIN_Y + volume_offset_y * SPACING_Y,
     )
@@ -204,7 +204,7 @@ def sitk_3d_register( # benutzt alle 20 Kerne
         volume_frames,
         volume_poses,
         options=options,
-        image_origin=volume_origin,
+        image_origin=volume_origin_xy,
     )
     volume_building_time = time.time() - start
     
@@ -218,8 +218,10 @@ def sitk_3d_register( # benutzt alle 20 Kerne
 
     # init IR
     reg_init_time_start = time.time()
-    fixed = slice_volume
-    moving = volume
+    # fixed = slice_volume
+    # moving = volume
+    fixed = volume
+    moving = slice_volume
 
     if "roi" in options:
         roi_size, roi_index = get_center_roi_params(fixed.GetSize(), (0.5, 0.5, 1.0))
@@ -293,9 +295,10 @@ def sitk_3d_register( # benutzt alle 20 Kerne
         show_volumes(
             volumes=[volume, slice_volume, slice_volume, slice_volume],
             volume_poses=[np.eye(4), transform_reg, slice_frame_pose_gt, slice_frame_pose],
-            volume_outline_colors=["black", "red", "green", "yellow"],
+            volume_outline_colors=["black", "red", "green", "purple"],
             frames=volume_frames,
             frame_poses=volume_poses,
+            volume_origin_xy=volume_origin_xy,
             volume_labels=["volume", "ir slice", "gt slice", "pred slice"]
         )
     all_time = time.time() - all_start
@@ -331,6 +334,7 @@ def show_volumes(
     volume_poses: list[np.ndarray] | None = None,
     frames: list[np.ndarray] | None = None,
     frame_poses: list[np.ndarray] | None = None,
+    volume_origin_xy: tuple[float, float, float] | None = None,
     volume_outline_colors=None,
     frame_color="blue",
     volume_labels: list[str] | None = None,
@@ -364,6 +368,7 @@ def show_volumes(
     )):
         # build grid and add to plot
         grid = _sitk_to_grid(img)
+        grid.dimensions = np.asarray(grid.dimensions) + 1 # sitk works with pixel voxel centers, pyvista with corners
         outline = grid.outline()
         outline.transform(pose, inplace=True)
 
@@ -383,13 +388,12 @@ def show_volumes(
             raise ValueError("frames and frame_poses must have the same length.")
 
         for frame, pose in zip(frames, frame_poses):
-
             # build sitk image
             frame_volume = slice_to_volume(
                 slice_frame=frame,
                 pose=pose,
                 spacing=[SPACING_X, SPACING_Y, SPACING_X],
-                origin=volumes[0].GetOrigin(),
+                origin=[*volume_origin_xy, 0.0],
                 thickness=1
             )
 
@@ -398,12 +402,12 @@ def show_volumes(
             outline = grid.outline()
             outline.transform(pose, inplace=True)
 
-            plotter.add_mesh(
-                outline,
-                color=frame_color,
-                line_width=4,
-                label=frame_label,
-            )
+            # plotter.add_mesh(
+            #     outline,
+            #     color=frame_color,
+            #     line_width=4,
+            #     label=frame_label,
+            # )
 
     # plot
     labels = [*volume_labels, "frames"]
@@ -424,7 +428,7 @@ def _sitk_to_grid(img: sitk.Image):
     grid = pv.ImageData()
     grid.dimensions = np.array(arr.shape[::-1])
     grid.spacing = img.GetSpacing()
-    grid.origin = img.GetOrigin()
+    grid.origin = img.GetOrigin() + np.array(img.GetSpacing()) / 2
 
     grid.point_data["values"] = arr.ravel(order="F")
 
@@ -660,6 +664,7 @@ def build_volume_from_slices(
     """
     n, h, w = frames.shape
     poses = np.asarray(poses, dtype=np.float64)
+    # print(poses)
 
     # Pixel indices (upper-left origin) -> local image-space coords (origin at image center).
     xx, yy = np.meshgrid(np.arange(w), np.arange(h), indexing="xy")
@@ -679,7 +684,7 @@ def build_volume_from_slices(
     world_max = world_flat.max(axis=0)
 
     spacing = np.asarray(volume_spacing, dtype=np.float64)
-    volume_size = np.ceil((world_max - world_min) / spacing).astype(np.int64) + 1  # (nx, ny, nz)
+    volume_size = np.ceil((world_max - world_min) / spacing).astype(np.int64) #+ 1  # (nx, ny, nz)
 
     voxel_idx = np.round((world_flat - world_min) / spacing).astype(np.int64)
     valid = np.all((voxel_idx >= 0) & (voxel_idx < volume_size), axis=1)
@@ -707,7 +712,7 @@ def build_volume_from_slices(
         mask_image.CopyInformation(volume)
         volume = _fill_interior_holes(volume, mask_image)
 
-    volume = sitk.Expand(volume, [1, 1, 4])
+    # volume = sitk.Expand(volume, [1, 1, 4])
 
     # print("rotation determinants:", [
     #     np.linalg.det(pose[:3, :3]) for pose in poses

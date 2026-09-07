@@ -112,8 +112,10 @@ def register_3d(window: np.ndarray,
     volume_poses = np.delete(pred_acc, center, axis=0) @ pred_first_inverse # normalize by first pose to make relative
 
     slice_frame = window[center]
-    slice_frame_pose = pred_acc[center] @ pred_first_inverse
-    slice_frame_pose_gt = gt_acc[center] @ gt_first_inverse
+    # slice_frame_pose = pred_acc[center] @ pred_first_inverse
+    # slice_frame_pose_gt = gt_acc[center] @ gt_first_inverse
+    slice_frame_pose = pred_acc[center] @ np.transpose(pred_acc[0])
+    slice_frame_pose_gt = gt_acc[center] @ np.transpose(pred_acc[0])
     (
         T_reg,
         metric_before_forward,
