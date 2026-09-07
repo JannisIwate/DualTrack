@@ -23,6 +23,7 @@ def detect_loop_closures(
     plot_callback=None,
     registration_cache=None,
     verbose=True,
+    frame_callback=None,
 ):
     pose_vectors = np.asarray(matrix_to_pose_vector(pred_poses), dtype=np.float32)
     transforms = np.asarray(transforms)
@@ -40,6 +41,9 @@ def detect_loop_closures(
     if method == "cosine_similarity":
 
         for i in range(0, n_frames, stepsize):
+
+            if frame_callback is not None:
+                frame_callback(i)
 
             query = pose_vectors[i].reshape(1, -1)
 
@@ -60,9 +64,16 @@ def detect_loop_closures(
                 print(f"lc score: {score}")
 
                 candidate = evaluate_candidate(
-                    i, int(j), score, frames, accumulated_transforms,
-                    accumulated_gt_transforms, registration_options,
-                    plot_callback, registration_cache, verbose,
+                    i,
+                    int(j),
+                    score,
+                    frames,
+                    accumulated_transforms,
+                    accumulated_gt_transforms,
+                    registration_options,
+                    plot_callback,
+                    registration_cache,
+                    verbose,
                 )
                 if candidate is not None:
                     loop_closures.append(candidate)
@@ -73,6 +84,9 @@ def detect_loop_closures(
         nn.fit(pose_vectors)
 
         for i in range(0, n_frames, stepsize):
+
+            if frame_callback is not None:
+                frame_callback(i)
 
             distances, indices = nn.kneighbors(
                 pose_vectors[i].reshape(1, -1)
@@ -92,9 +106,16 @@ def detect_loop_closures(
                     continue
 
                 candidate = evaluate_candidate(
-                    i, int(j), score, frames, accumulated_transforms,
-                    accumulated_gt_transforms, registration_options,
-                    plot_callback, registration_cache, verbose,
+                    i,
+                    int(j),
+                    score,
+                    frames,
+                    accumulated_transforms,
+                    accumulated_gt_transforms,
+                    registration_options,
+                    plot_callback,
+                    registration_cache,
+                    verbose,
                 )
                 if candidate is not None:
                     loop_closures.append(candidate)

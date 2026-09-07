@@ -1,6 +1,7 @@
 import numpy as np
 import SimpleITK as sitk
 from matplotlib import pyplot as plt
+from pose_graph_optimization.sitk_old import image_plot
 from pose_graph_optimization.utils import accumulate
 from pose_graph_optimization.utils import pose3_to_se2
 from pose_graph_optimization.defines import *
@@ -46,6 +47,7 @@ def sitk_2d_register(
     fixed = sitk.GetImageFromArray(frame_j.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
 
     if "roi" in options:
+
         roi_size, roi_index = get_center_roi_params(fixed.GetSize(), (0.5, 0.5))
 
         fixed = sitk.RegionOfInterest(
@@ -90,6 +92,8 @@ def sitk_2d_register(
     mask.CopyInformation(fixed)
     # image_plot(mask, title="mask")
     # image_plot(fixed, title="fixed")
+    # masked_fixed = sitk.Mask(fixed, mask)
+    # image_plot(masked_fixed, title="mask applied to fixed")
     # image_plot(moving, title="moving")
     # plt.show()
     # breakpoint()
@@ -719,10 +723,10 @@ def build_volume_from_slices(
 
     volume = sitk.Expand(volume, [1, 1, 4])
 
-    print("rotation determinants:", [
-        np.linalg.det(pose[:3, :3]) for pose in poses
-    ])
-    print(f"volume size: {volume.GetSize()}")
+    # print("rotation determinants:", [
+    #     np.linalg.det(pose[:3, :3]) for pose in poses
+    # ])
+    # print(f"volume size: {volume.GetSize()}")
 
     return volume, tuple(world_min), volume_spacing
 

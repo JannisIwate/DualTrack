@@ -21,7 +21,10 @@ def pose_error(T_gt: Any, T_pred: Any) -> tuple[np.ndarray, np.ndarray]:
     return t_err, r_err
 
 
-def avg_trajectory_error(transforms_1: Sequence[np.ndarray], transforms_2: Sequence[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+def avg_trajectory_error(
+    transforms_1: Sequence[np.ndarray],
+    transforms_2: Sequence[np.ndarray],
+) -> tuple[np.ndarray, np.ndarray]:
     
     if len(transforms_1) != len(transforms_2):
         raise ValueError("Inputs must have the same length")
@@ -48,12 +51,14 @@ def save_results(
     output_dir: str,
     initial: Sequence[np.ndarray],
     optimized: Sequence[np.ndarray],
+    number_of_scans: int = 0,
+    number_of_failed_scans: int = 0,
     graph: Any = None,
     metrics_original: Sequence[dict[str, float]] | None = None,
     metrics_after_pgo: Sequence[dict[str, float]] | None = None,
     ir_metrics: dict[str, Sequence[float]] | None = None,
     figs_individual: dict | None = None,
-    figs_general: dict | None = None
+    figs_general: dict | None = None,
 ) -> None:
 
     try:
@@ -67,9 +72,11 @@ def save_results(
 
     with open(metrics_path, "w") as f:
 
-        if len(metrics_original[0]) > 0:
+        f.write("initial:\n\n")
+        f.write(f"  number of scans: {number_of_scans}\n")
+        f.write(f"  number of failed scans: {number_of_failed_scans}\n\n")
 
-            f.write("initial:\n\n")
+        if len(metrics_original[0]) > 0:
 
             for metrics in metrics_original:
                 metrics_df = pd.DataFrame(metrics).mean()
@@ -81,8 +88,6 @@ def save_results(
         if len(metrics_after_pgo[0]) > 0:
 
             f.write("after pgo:\n\n")
-            print("metrics after pgo:")
-            print(metrics_after_pgo)
 
             for metrics in metrics_after_pgo:
                 metrics_df = pd.DataFrame(metrics).mean()
@@ -106,7 +111,7 @@ def save_results(
                         f.write(f"  {key}: {value}\n")
                     f.write("\n")
 
-    if graph != None:
+    if graph is not None and initial is not None and optimized is not None:
         graph_path = os.path.join(output_dir, "graph.h5")
 
         with h5py.File(graph_path, "w") as f:
@@ -141,9 +146,6 @@ def save_results(
             for fig_name, fig in fig_collection.items():
 
                 fig.savefig(os.path.join(figs_dir, fig_name))
-
-    print(f"Saved results to {output_dir}")
-
 
 def print_avg_metrics(metrics_list: Sequence[dict[str, float]]) -> None:
 

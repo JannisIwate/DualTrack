@@ -63,6 +63,8 @@ def cfg_get(config, path: str):
 def init_results() -> dict:
 
     return {
+        "scans_evaluated": 0,
+        "failed_scans": 0,
         "pgo": {
             "drift_metrics_original": [], "drift_metrics_after_pgo": [],
             "ddf_metrics_original": [], "ddf_metrics_after_pgo": [],
@@ -82,7 +84,11 @@ def init_results() -> dict:
 # other helpers
 # ==========================================================================
 
-def largest_pose_errors(est: np.ndarray, gt: np.ndarray, n: int = 5) -> tuple[
+def largest_pose_errors(
+    est: np.ndarray,
+    gt: np.ndarray,
+    n: int = 5,
+) -> tuple[
                                                                             np.ndarray, np.ndarray, np.ndarray,
                                                                             np.ndarray, np.ndarray, np.ndarray,
                                                                         ]:
@@ -119,7 +125,9 @@ def largest_pose_errors(est: np.ndarray, gt: np.ndarray, n: int = 5) -> tuple[
     )
 
 
-def extract_positions(values: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def extract_positions(
+    values: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     xs, ys, zs = [], [], []
 
@@ -136,7 +144,11 @@ def extract_positions(values: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.nd
 # plotting
 # ==========================================================================
 
-def plot_motion_vs_error(est: np.ndarray, gt: np.ndarray, title: str = "Error magnitudes"):
+def plot_motion_vs_error(
+    est: np.ndarray,
+    gt: np.ndarray,
+    title: str = "Error magnitudes",
+):
 
     if est.shape != gt.shape:
 
@@ -227,7 +239,10 @@ def plot_trajectories(
 # data loading
 # ==========================================================================
 
-def get_scan_list(config, input_pred: str):
+def get_scan_list(
+    config,
+    input_pred: str,
+):
 
     data = os.listdir(input_pred)
     nr_of_scans = cfg_get(config, "general.nr_scans")
@@ -240,7 +255,12 @@ def get_scan_list(config, input_pred: str):
     return data, nr_of_scans
 
 
-def load_scan_data(input_pred: str, el: str, sweep_index: int, config):
+def load_scan_data(
+    input_pred: str,
+    el: str,
+    sweep_index: int,
+    config,
+):
 
     sweep_path = os.path.join(input_pred, el, "export.h5")
 
@@ -435,7 +455,11 @@ def get_linear_approximation_parameters(config):
 # IR
 # ==========================================================================
 
-def blend_pose(pred_pose: np.ndarray, ir_pose: np.ndarray, factor: float) -> np.ndarray:
+def blend_pose(
+    pred_pose: np.ndarray,
+    ir_pose: np.ndarray,
+    factor: float,
+) -> np.ndarray:
 
     if not 0 <= factor <= 1:
         raise ValueError("replace_pred_factor must be in the range [0, 1].")
@@ -456,14 +480,17 @@ def blend_pose(pred_pose: np.ndarray, ir_pose: np.ndarray, factor: float) -> np.
     return blended_pose
 
 
-def register_frame_pairs(idc1,
-                         idc2,
-                         frames_1,
-                         frames_2,
-                         ir_ref,
-                         ir_gt,
-                         config,
-                         counter=0):
+def register_frame_pairs(
+    idc1,
+    idc2,
+    frames_1,
+    frames_2,
+    ir_ref,
+    ir_gt,
+    config,
+    counter=0,
+    frame_callback=None,
+):
 
     ir_metrics = {
         "metric": config.image_registration.sitk.metric,
@@ -475,19 +502,26 @@ def register_frame_pairs(idc1,
 
     for i, _ in enumerate(idc1):
 
+        if frame_callback is not None:
+            frame_callback(int(idc2[i]))
+
         start_time = time.time()
-        (transform_ir,
-         confidence,
-         valid,
-         m_before_id,
-         m_before_gt,
-         m_before_pred,
-         m_after) = register_2d(frame_i=frames_1[i],
-                             frame_j=frames_2[i],
-                             ref_transform=ir_ref[i + 1], # skip identity
-                             gt_transform=ir_gt[i + 1],
-                             sitk=config.image_registration.sitk,
-                             **config.image_registration.get("register_2d", {}))
+        (
+            transform_ir,
+            confidence,
+            valid,
+            m_before_id,
+            m_before_gt,
+            m_before_pred,
+            m_after,
+        ) = register_2d(
+            frame_i=frames_1[i],
+            frame_j=frames_2[i],
+            ref_transform=ir_ref[i + 1],  # skip identity
+            gt_transform=ir_gt[i + 1],
+            sitk=config.image_registration.sitk,
+            **config.image_registration.get("register_2d", {}),
+        )
 
         confidences.append(confidence)
         ir_metrics["metric_before"].append(m_before_id)
@@ -497,7 +531,12 @@ def register_frame_pairs(idc1,
         ir_metrics["ir_execution_time"].append(time.time() - start_time)
         ir_transforms[i + 1] = transform_ir
 
-    return ir_metrics, ir_transforms, counter, confidences
+    return (
+        ir_metrics,
+        ir_transforms,
+        counter,
+        confidences,
+    )
 
 
 def register_volumes(
@@ -508,6 +547,7 @@ def register_volumes(
     gt_acc,
     config,
     counter,
+    frame_callback=None,
 ):
     ir_metrics = {
         "metric": config.image_registration.sitk.metric,
@@ -526,6 +566,9 @@ def register_volumes(
     first_registered = first_window_start + half_window
 
     for i, window in enumerate(windows):
+
+        if frame_callback is not None:
+            frame_callback(first_registered + i)
 
         start_time = time.time()
         ref_idx_start = first_window_start + i
@@ -569,12 +612,21 @@ def register_volumes(
             )
 
         ir_transforms[center_idx] = ir_transform
-        print("registered a frame")
+    return (
+        ir_metrics,
+        accumulated_to_inbetween(ir_transforms),
+        counter,
+    )
 
-    return ir_metrics, accumulated_to_inbetween(ir_transforms), counter
 
-
-def create_ir_scan_plots(sweep_name, ir_ref, ir_gt, ir_transforms, config, figs_individual):
+def create_ir_scan_plots(
+    sweep_name,
+    ir_ref,
+    ir_gt,
+    ir_transforms,
+    config,
+    figs_individual,
+):
 
     plot_cfg = cfg_get(config, "plot")
 
@@ -599,7 +651,14 @@ def create_ir_scan_plots(sweep_name, ir_ref, ir_gt, ir_transforms, config, figs_
         plt.close()
 
 
-def run_image_registration(scan, pred_acc, config, results, counter=0):
+def run_image_registration(
+    scan,
+    pred_acc,
+    config,
+    results,
+    counter=0,
+    frame_callback=None,
+):
 
     ir = results["ir"]
     frames, gt_acc = scan["frames"], scan["gt_acc"]
@@ -609,25 +668,34 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
     if ir_type == "2d":
 
         step = cfg_get(config, "image_registration.step") or 1
-        (idc1,
-        idc2,
-        ir_ref,
-        ir_gt) = sample_pairs_by_step(frames,
-                                    pred_acc,
-                                    gt_acc,
-                                    step)
+        (
+            idc1,
+            idc2,
+            ir_ref,
+            ir_gt,
+        ) = sample_pairs_by_step(
+            frames,
+            pred_acc,
+            gt_acc,
+            step,
+        )
 
-        (ir_metrics,
-        ir_transforms,
-        counter,
-        confidences) = register_frame_pairs(idc1,
-                                            idc2,
-                                            frames[idc1],
-                                            frames[idc2],
-                                            ir_ref,
-                                            ir_gt,
-                                            config,
-                                            counter=counter)
+        (
+            ir_metrics,
+            ir_transforms,
+            counter,
+            confidences,
+        ) = register_frame_pairs(
+            idc1,
+            idc2,
+            frames[idc1],
+            frames[idc2],
+            ir_ref,
+            ir_gt,
+            config,
+            counter=counter,
+            frame_callback=frame_callback,
+        )
     elif ir_type == "3d":
 
         WINDOW_SIZE = cfg_get(config, "image_registration.window_size")
@@ -642,15 +710,20 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
         idc1 = np.arange(pred_acc.shape[0] - 2)
         idc2 = np.arange(1, pred_acc.shape[0] - 1)
 
-        (ir_metrics,
-        ir_transforms,
-        counter) = register_volumes(windows,
-                         start,
-                         pred_acc,
-                         pred_inbetween,
-                         gt_acc,
-                         config,
-                         counter=counter)
+        (
+            ir_metrics,
+            ir_transforms,
+            counter,
+        ) = register_volumes(
+            windows,
+            start,
+            pred_acc,
+            pred_inbetween,
+            gt_acc,
+            config,
+            counter=counter,
+            frame_callback=frame_callback,
+        )
 
     else:
 
@@ -676,7 +749,13 @@ def run_image_registration(scan, pred_acc, config, results, counter=0):
         scan["calibration_matrix"], scan["image_shape_hw"], mode="5pt-landmark",
     ))
 
-    return counter, ir_transforms, idc1, idc2, confidences
+    return (
+        counter,
+        ir_transforms,
+        idc1,
+        idc2,
+        confidences,
+    )
 
 
 def create_ir_general_plots(results: dict, config):
@@ -735,7 +814,14 @@ def sample_sliding_windows(
 # metrics
 # ==========================================================================
 
-def compute_pgo_scan_metrics(scan, pred_acc, pred_inbetween, results, execute_pgo, optimized_pred=None):
+def compute_pgo_scan_metrics(
+    scan,
+    pred_acc,
+    pred_inbetween,
+    results,
+    execute_pgo,
+    optimized_pred=None,
+):
 
     pgo = results["pgo"]
     gt_acc = torch.tensor(scan["gt_acc"])
@@ -771,11 +857,30 @@ def save_all_results(results: dict, config):
     save_results(
         output_dir=f"{config.dirs.output_dir}/results",
         graph=pgo["graph"], initial=pgo["initial"], optimized=pgo["optimized"],
+        number_of_scans=results["scans_evaluated"],
+        number_of_failed_scans=results["failed_scans"],
         metrics_original=[pgo["drift_metrics_original"], pgo["ddf_metrics_original"]],
         metrics_after_pgo=[pgo["drift_metrics_after_pgo"], pgo["ddf_metrics_after_pgo"], pgo["pgo execution time"]],
         ir_metrics=[ir["metrics"], ir["drift_metrics_after_ir"], ir["ddf_metrics_after_ir"]],
         figs_individual=ir["figs_individual"], figs_general=ir["figs_general"],
     )
+
+
+def save_current_results(results: dict, config):
+
+    if not cfg_has(config, "dirs.output_dir"):
+
+        return
+
+    if (
+        cfg_has(config, "image_registration")
+        and cfg_has(config, "plot")
+        and "plot_ir_error_magnitudes" in cfg_get(config, "plot")
+        and results["ir"]["transforms"]["ir_ref_transforms"]
+    ):
+        create_ir_general_plots(results, config)
+
+    save_all_results(results, config)
 
 
 # ==========================================================================
@@ -796,28 +901,50 @@ def main():
     # init
     results = init_results()
     counter = 0  # stride counter
+    frame_progress = None
 
-    # iterate over scans
-    for i, el in enumerate(tqdm(data, desc="Working", total=nr_of_scans)):
+    def process_scan(scan_index, scan_name):
 
-        scan = load_scan_data(input_pred, el, i, config)
+        nonlocal counter, frame_progress
+
+        # load scan
+        scan = load_scan_data(input_pred, scan_name, scan_index, config)
+
         if scan is None:
-            continue
+
+            raise RuntimeError(f"Could not load scan {scan_name}")
 
         pred_acc, pred_inbetween = scan["pred_acc"], scan["pred_inbetween"]
-        gt_acc, gt_inbetween = scan["gt_acc"], scan["gt_inbetween"]
+        gt_acc = scan["gt_acc"]
         pred_graph = None
         ref_sigma = cfg_get(config, "pgo.ref_values_sigma") or 1e-2
+        frame_progress = tqdm(
+            total=len(pred_acc),
+            desc="Frames",
+            position=1,
+            leave=False,
+            dynamic_ncols=True,
+        )
 
+        def update_frame_progress(frame_index):
+
+            if frame_progress is None:
+
+                return
+
+            frame_progress.n = min(frame_index + 1, frame_progress.total)
+            frame_progress.refresh()
+
+        # replace predicted poses
         if "la_replace" in (cfg_get(config, "general.options") or []):
 
             quantile, scale = get_linear_approximation_parameters(config)
+
             pred_inbetween = linear_approximation(
-                pred_inbetween,
-                quantile,
-                scale,
+                pred_inbetween, quantile, scale,
                 *get_linear_approximation_profile(config),
             )
+
             pred_acc = inbetween_to_accumulated(pred_inbetween)
 
         # init graph and PGO
@@ -825,39 +952,37 @@ def main():
 
             pred_graph, pred_acc, pred_inbetween = init_pose_graph(pred_acc, pred_inbetween)
 
-            # LC
+            # loop closure
             if cfg_has(config, "loop_closure"):
 
                 def show_loop_closure(source_idx, target_idx):
 
                     fig = plot_trajectories(
-                        [extract_positions(gt_acc)],
-                        labels=["GT"],
-                        colors=["blue"],
+                        [extract_positions(gt_acc)], labels=["GT"], colors=["blue"],
                         highlight_indices=(source_idx, target_idx),
                         title=f"Loop closure: frame {source_idx} -> {target_idx}",
                     )
-                    # plt.show()
+
                     plt.close(fig)
 
-                loop_closures = detect_loop_closures(pred_poses=pred_acc,
-                                                     frames=scan["frames"],
-                                                     transforms=pred_inbetween,
-                                                     gt_transforms=scan["gt_inbetween"],
-                                                     plot_callback=show_loop_closure,
-                                                     **config.loop_closure)
+                loop_closures = detect_loop_closures(
+                    pred_poses=pred_acc, frames=scan["frames"],
+                    transforms=pred_inbetween, gt_transforms=scan["gt_inbetween"],
+                    plot_callback=show_loop_closure,
+                    frame_callback=update_frame_progress,
+                    **config.loop_closure,
+                )
 
                 for lc in loop_closures:
 
                     pred_graph.add_constraint(
-                        lc["source_idx"],
-                        lc["target_idx"],
-                        lc["transform"],
-                        registration_noise_model(confidence=lc["combined_score"],
-                                                 ref_sigma=ref_sigma),
+                        lc["source_idx"], lc["target_idx"], lc["transform"],
+                        registration_noise_model(
+                            confidence=lc["combined_score"], ref_sigma=ref_sigma,
+                        ),
                     )
 
-            # OF
+            # optical flow
             if cfg_has(config, "optical_flow"):
 
                 pass
@@ -866,55 +991,54 @@ def main():
             if "noise_constraints" in (cfg_get(config, "pgo.options") or []):
 
                 quantile, scale = get_linear_approximation_parameters(config)
+
                 pred_inbetween_la = linear_approximation(
-                    pred_inbetween,
-                    quantile,
-                    scale,
+                    pred_inbetween, quantile, scale,
                     *get_linear_approximation_profile(config),
                 )
 
-                for i, transform in enumerate(pred_inbetween_la[1:-1]):
+                for node_index, transform in enumerate(pred_inbetween_la[1:-1]):
 
-                    pred_graph.add_constraint(node_i=i, node_j=i + 1, transform=transform)
+                    pred_graph.add_constraint(
+                        node_i=node_index, node_j=node_index + 1, transform=transform,
+                    )
 
-        # IR
+        # image registration
         if cfg_has(config, "image_registration"):
 
-            start = time.time()
-            (counter,
-             ir_transforms,
-             idc1,
-             idc2,
-             confidences) = run_image_registration(scan,
-                                                   pred_acc,
-                                                   config,
-                                                   results,
-                                                   counter=counter)
-            # print(f"total global: {time.time() - start}")
-            # breakpoint()
+            (counter, ir_transforms, idc1, idc2, confidences) = run_image_registration(
+                scan,
+                pred_acc,
+                config,
+                results,
+                counter=counter,
+                frame_callback=update_frame_progress,
+            )
 
-            # add IR contraints
+            # add IR constraints
             if cfg_has(config, "pgo"):
 
                 stride = cfg_get(config, "general.counter") or 1
-                ref_sigma = ref_sigma
 
-                for i, _ in enumerate(ir_transforms):
+                for transform_index, _ in enumerate(ir_transforms):
 
-                    if i == 0 or i - 1 >= len(idc1):
+                    if transform_index == 0 or transform_index - 1 >= len(idc1):
+
                         continue
 
                     counter += 1
+
                     if counter % stride == 0:
 
                         pred_graph.add_constraint(
-                            node_i=idc1[i - 1],
-                            node_j=idc2[i - 1],
-                            transform=ir_transforms[i],
+                            node_i=idc1[transform_index - 1],
+                            node_j=idc2[transform_index - 1],
+                            transform=ir_transforms[transform_index],
                             noise_sigma=registration_noise_model(
-                                confidence=confidences[i - 1],
+                                confidence=confidences[transform_index - 1],
                                 ref_sigma=ref_sigma,
-                            ))
+                            ),
+                        )
 
         # optimize graph
         optimized_pred = None
@@ -922,32 +1046,110 @@ def main():
         if cfg_has(config, "pgo"):
 
             start = time.time()
+
             results["pgo"]["graph"], _, pred_optimized = pred_graph.build_graph()
-            results["pgo"]["pgo execution time"].append({"pgo execution time": time.time() - start})
+            results["pgo"]["pgo execution time"].append(
+                {"pgo execution time": time.time() - start}
+            )
+
             optimized_pred = gtsam_to_numpy(pred_optimized)
 
-        # retrieve (pgo) results
-        compute_pgo_scan_metrics(scan,
-                                 pred_acc,
-                                 pred_inbetween,
-                                 results,
-                                 cfg_has(config, "pgo"),
-                                 optimized_pred)
-        
+        # retrieve (PGO) results
+        compute_pgo_scan_metrics(
+            scan,
+            pred_acc,
+            pred_inbetween,
+            results,
+            cfg_has(config, "pgo"),
+            optimized_pred,
+        )
+
         results["pgo"]["initial"] = pred_acc
         results["pgo"]["optimized"] = optimized_pred
 
-    # create ir plots
-    if (cfg_has(config, "image_registration") and
-        cfg_has(config, "plot") and
-        "plot_ir_error_magnitudes" in cfg_get(config, "plot")):
+    # iterate over scans
+    for scan_index, scan_name in enumerate(tqdm(data, desc="Scans", total=nr_of_scans)):
 
-        create_ir_general_plots(results, config)
+        pgo_list_lengths = {
+            key: len(value)
+            for key, value in results["pgo"].items()
+            if isinstance(value, list)
+        }
 
-    # save results
+        ir_list_lengths = {
+            key: len(value)
+            for key, value in results["ir"].items()
+            if isinstance(value, list)
+        }
+
+        ir_transform_lengths = {
+            key: len(value)
+            for key, value in results["ir"]["transforms"].items()
+        }
+
+        previous_pgo_state = {
+            key: results["pgo"][key]
+            for key in ("graph", "initial", "optimized")
+        }
+
+        previous_ir_metrics = results["ir"]["metrics"]
+        previous_ir_figs_individual = dict(results["ir"]["figs_individual"])
+        previous_ir_figs_general = dict(results["ir"]["figs_general"])
+        counter_before_scan = counter
+        scan_succeeded = False
+
+        # process one scan; failures are isolated to this iteration
+        try:
+
+            process_scan(scan_index, scan_name)
+            results["scans_evaluated"] += 1
+            scan_succeeded = True
+
+        except Exception as error:
+
+            # rollback partial results from the failed scan
+            for key, length in pgo_list_lengths.items():
+
+                del results["pgo"][key][length:]
+
+            for key, length in ir_list_lengths.items():
+
+                del results["ir"][key][length:]
+
+            for key, length in ir_transform_lengths.items():
+
+                del results["ir"]["transforms"][key][length:]
+
+            results["pgo"].update(previous_pgo_state)
+            results["ir"]["metrics"] = previous_ir_metrics
+            results["ir"]["figs_individual"] = previous_ir_figs_individual
+            results["ir"]["figs_general"] = previous_ir_figs_general
+            counter = counter_before_scan
+            results["failed_scans"] += 1
+
+            print(f"Scan {scan_name} failed; continuing: {error}")
+
+        finally:
+
+            if frame_progress is not None:
+
+                if scan_succeeded:
+
+                    frame_progress.n = frame_progress.total
+                    frame_progress.refresh()
+
+                frame_progress.close()
+                frame_progress = None
+
+            # optionally persist the current state after every scan
+            if "save_after_each_scan" in (cfg_get(config, "general.options") or []):
+
+                save_current_results(results, config)
+
+    # create final results
     if cfg_has(config, "dirs.output_dir"):
 
-        save_all_results(results, config)
+        save_current_results(results, config)
 
 
 if __name__ == "__main__":
