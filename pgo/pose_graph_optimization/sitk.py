@@ -71,9 +71,6 @@ def sitk_2d_register(
     fixed.SetOrigin(image_origin) # origin in SITK is not origin in DualTrack! Also, origin only has minimal effect when it is the same for both
     # (still it makes sense to leave it as is as CenteredTransformInitializer computes R center from this)
     moving.SetOrigin(image_origin)
-    # image_plot(fixed, title="fixed before")
-    # plt.show()
-    # breakpoint()
 
     ## registration
     registration = build_registration_object(metric, optimizer, options)
@@ -90,13 +87,6 @@ def sitk_2d_register(
         mask = get_mask_from_patches(mask, fixed, moving, ref_transform, 4, 0.7) # 4 and 0.7 turn out to be ideal
 
     mask.CopyInformation(fixed)
-    # image_plot(mask, title="mask")
-    # image_plot(fixed, title="fixed")
-    # masked_fixed = sitk.Mask(fixed, mask)
-    # image_plot(masked_fixed, title="mask applied to fixed")
-    # image_plot(moving, title="moving")
-    # plt.show()
-    # breakpoint()
 
     registration.SetMetricFixedMask(mask)
     registration.SetMetricMovingMask(mask)
@@ -141,27 +131,23 @@ def sitk_2d_register(
 
     if "show_ir" in options:
 
-        image_plot(fixed, title="fixed")
-        image_plot(fixed, title="fixed")
-
-        image_plot(moving, title="moving")
-        image_plot(moving, title="moving")
-
-        registered_image_ir = sitk.Resample(
-            moving,
-            fixed,
+        masked_fixed = sitk.Mask(fixed, mask)
+        masked_moving = sitk.Mask(moving, mask)
+        registered_moving = sitk.Resample(
+            masked_moving,
+            masked_fixed,
             transform_reg,
             sitk.sitkLinear,
-            0.0
+            0.0,
+            masked_fixed.GetPixelID(),
         )
-        image_plot(registered_image_ir, title="ir transform")
+
+        image_plot(masked_fixed, title="fixed (masked)")
+        image_plot(masked_moving, title="moving (masked)")
+        image_plot(registered_moving, title="moving (registered)")
         plt.show()
 
-    # print("rotation determinants:", np.linalg.det(ref_transform))
-    # print(f"image size: {fixed.GetSize()}")
-
     return (
-        # transform_reg_inv,
         sitk_to_3dof(transform_reg),
         float(metric_before_identity),
         float(metric_before_gt),
