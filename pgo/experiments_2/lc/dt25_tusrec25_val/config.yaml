@@ -1,0 +1,19 @@
+dirs:
+  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans
+  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted
+  output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments_2/lc/dt25_tusrec25_val
+
+general:
+  # nr_scans: 1
+  # nr_frames: 5
+  options: [save_after_each_scan]
+
+pgo: {}
+
+loop_closure:
+  method: nearest_neighbor
+  stepsize: 10
+  temporal_offset: 50
+  threshold: 0.1
+  n_neighbors: 5
+  loop_consistency_check: false

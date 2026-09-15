@@ -1,0 +1,18 @@
+dirs:
+  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_24_val/run_1/scans
+  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted
+  output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments_2/combined_pgo/3d_ir/dt25_tusrec24_val/s_to_v
+
+general:
+  # nr_scans: 1
+  # nr_frames: 5
+  options: [save_after_each_scan]
+
+pgo: {options: [noise_constraints], ref_values_sigma: 1e-1}
+linear_approximation: {profile: tusrec25_dt25, quantile: 0.9, scale: 0.8}
+loop_closure: {method: nearest_neighbor, stepsize: 10, temporal_offset: 50, threshold: 0.1, n_neighbors: 4, loop_consistency_check: false}
+
+image_registration:
+  ir_type: "3d"
+  window_size: 5
+  sitk: {metric: "mi", optimizer: "gradient", transform_type: "euler", registration_type: "s_to_v", options: [crop, replace_pred]}

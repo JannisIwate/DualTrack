@@ -1,0 +1,33 @@
+initial:
+
+  number of scans: 6
+  number of failed scans: 0
+
+  final_drift_rate: 72.9455603483227
+  avg_drift_rate: 44.54003973308334
+  max_drift: 11.862647957118787
+  sum_of_drift: 8283.054914809765
+
+  avg_global_displacement_error: 9.104430516560873
+  max_global_displacement_error: 16.194804668426514
+  avg_local_displacement_error: 0.1691646253069242
+  max_local_displacement_error: 1.1546108822027843
+  tusrec_final_score: 0.641708628640292
+  relative_global_err_pct: 0.3306363746523857
+
+after pgo:
+
+  final_drift_rate: 63.378967122126795
+  avg_drift_rate: 43.39433371630715
+  max_drift: 11.004115718057248
+  sum_of_drift: 7970.763630791331
+
+  avg_global_displacement_error: 8.04865296681722
+  max_global_displacement_error: 14.23788054784139
+  avg_local_displacement_error: 0.16916806250810623
+  max_local_displacement_error: 1.1718161602814992
+  tusrec_final_score: 0.6378079741187471
+  relative_global_err_pct: 0.3123708739876747
+
+  pgo execution time: 0.049318830172220864
+

@@ -1,0 +1,29 @@
+dirs:
+  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run/scans
+  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec24_converted
+  output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments_2/2d_ir/dt24_tusrec24_val_mi
+
+general:
+  # nr_scans: 1
+  # nr_frames: 5
+  options:
+    - save_after_each_scan
+
+pgo: {}
+
+image_registration:
+  ir_type: "2d"
+  cross_check: false
+  step: 1
+  sitk:
+    metric: "mi"
+    optimizer: "gradient"
+    options:
+      - roi
+      - patch_mask
+      - replace_pred
+
+plot:
+  plot_ir_error_magnitudes: true
+  plot_ir_pose_differences: true
+  plot_ir_trajectories: true

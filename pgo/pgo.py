@@ -604,7 +604,7 @@ def register_volumes(
                 config,
                 "image_registration.sitk.replace_pred_factor",
             )
-            replace_pred_factor = 0.1 if replace_pred_factor is None else replace_pred_factor
+            replace_pred_factor = 1.0 if replace_pred_factor is None else replace_pred_factor
             pred_acc[center_idx] = blend_pose(
                 pred_acc[center_idx],
                 ir_transform,
@@ -619,6 +619,80 @@ def register_volumes(
     )
 
 
+def register_slice_pairs(
+    frames,
+    pred_acc,
+    gt_acc,
+    config,
+    counter,
+    frame_callback=None,
+):
+    ir_metrics = {
+        "metric": config.image_registration.sitk.metric,
+        "metric_before": [],
+        "metric_before_gt": [],
+        "metric_before_pred": [],
+        "metric_after": [],
+        "ir_execution_time": [],
+    }
+
+    ir_global = np.copy(pred_acc)
+    ir_transforms = np.tile(np.eye(4), (len(frames), 1, 1))
+    idc1 = np.arange(len(frames) - 1)
+    idc2 = idc1 + 1
+
+    for frame_i_idx, frame_j_idx in zip(idc1, idc2):
+        if frame_callback is not None:
+            frame_callback(int(frame_j_idx))
+
+        start_time = time.time()
+        (
+            ir_transform_global,
+            m_before_id,
+            m_before_gt,
+            m_before_pred,
+            m_after,
+        ) = register_3d(
+            frames[frame_i_idx:frame_j_idx + 1],
+            pred_acc[frame_i_idx:frame_j_idx + 1],
+            gt_acc[frame_i_idx:frame_j_idx + 1],
+            config.image_registration.sitk,
+        )
+
+        ir_metrics["metric_before"].append(m_before_id)
+        ir_metrics["metric_before_gt"].append(m_before_gt)
+        ir_metrics["metric_before_pred"].append(m_before_pred)
+        ir_metrics["metric_after"].append(m_after)
+        ir_metrics["ir_execution_time"].append(time.time() - start_time)
+        ir_global[frame_j_idx] = ir_transform_global
+
+        if cfg_has(config, "image_registration.sitk.options") and \
+        "replace_pred" in cfg_get(config, "image_registration.sitk.options"):
+            replace_pred_factor = cfg_get(
+                config,
+                "image_registration.sitk.replace_pred_factor",
+            )
+            replace_pred_factor = 1.0 if replace_pred_factor is None else replace_pred_factor
+            pred_acc[frame_j_idx] = blend_pose(
+                pred_acc[frame_j_idx],
+                ir_transform_global,
+                replace_pred_factor,
+            )
+            ir_global[frame_j_idx] = pred_acc[frame_j_idx]
+
+        ir_transforms[frame_j_idx] = (
+            np.linalg.inv(ir_global[frame_i_idx]) @ ir_global[frame_j_idx]
+        )
+
+    return (
+        ir_metrics,
+        ir_transforms,
+        counter,
+        idc1,
+        idc2,
+    )
+
+
 def create_ir_scan_plots(
     sweep_name,
     ir_ref,
@@ -627,7 +701,6 @@ def create_ir_scan_plots(
     config,
     figs_individual,
 ):
-
     plot_cfg = cfg_get(config, "plot")
 
     if plot_cfg is None:
@@ -635,12 +708,23 @@ def create_ir_scan_plots(
         return
 
     figs = figs_individual.setdefault(sweep_name, {})
+    ir_ref_global = inbetween_to_accumulated(ir_ref)
+    ir_gt_global = inbetween_to_accumulated(ir_gt)
+    ir_global = inbetween_to_accumulated(ir_transforms)
 
     if "plot_ir_pose_differences" in plot_cfg:
 
-        figs["ir_pose_diffs_ref_gt"] = plot_pose_differences(ir_ref, ir_gt, title="GT vs Pred")
+        figs["ir_pose_diffs_ref_gt"] = plot_pose_differences(
+            ir_ref_global,
+            ir_gt_global,
+            title="GT vs Pred",
+        )
         plt.close()
-        figs["ir_pose_diffs_ir_gt"] = plot_pose_differences(ir_transforms, ir_gt, title="GT vs IR")
+        figs["ir_pose_diffs_ir_gt"] = plot_pose_differences(
+            ir_global,
+            ir_gt_global,
+            title="GT vs IR",
+        )
         plt.close()
 
     if "plot_ir_trajectories" in plot_cfg:
@@ -662,6 +746,7 @@ def run_image_registration(
 
     ir = results["ir"]
     frames, gt_acc = scan["frames"], scan["gt_acc"]
+    confidences = None
 
     ir_type = cfg_get(config, "image_registration.ir_type")
 
@@ -698,32 +783,52 @@ def run_image_registration(
         )
     elif ir_type == "3d":
 
-        WINDOW_SIZE = cfg_get(config, "image_registration.window_size")
-        if WINDOW_SIZE is None:
-            WINDOW_SIZE = 11
         pred_inbetween = accumulated_to_inbetween(pred_acc)
         gt_inbetween = accumulated_to_inbetween(gt_acc)
-        windows, start = sample_sliding_windows(frames, WINDOW_SIZE) # shape (438, 10, 4, 4)
+        pred_acc_ir = np.copy(pred_acc)
 
         ir_ref = pred_inbetween
         ir_gt = gt_inbetween
-        idc1 = np.arange(pred_acc.shape[0] - 2)
-        idc2 = np.arange(1, pred_acc.shape[0] - 1)
 
-        (
-            ir_metrics,
-            ir_transforms,
-            counter,
-        ) = register_volumes(
-            windows,
-            start,
-            pred_acc,
-            pred_inbetween,
-            gt_acc,
-            config,
-            counter=counter,
-            frame_callback=frame_callback,
-        )
+        registration_type = cfg_get(config, "image_registration.sitk.registration_type") or "s_to_v"
+
+        if registration_type == "s_to_s":
+            (
+                ir_metrics,
+                ir_transforms,
+                counter,
+                idc1,
+                idc2,
+            ) = register_slice_pairs(
+                frames,
+                pred_acc_ir,
+                gt_acc,
+                config,
+                counter=counter,
+                frame_callback=frame_callback,
+            )
+        else:
+            WINDOW_SIZE = cfg_get(config, "image_registration.window_size")
+            if WINDOW_SIZE is None:
+                WINDOW_SIZE = 11
+            windows, start = sample_sliding_windows(frames, WINDOW_SIZE)
+            idc1 = np.arange(pred_acc.shape[0] - 2)
+            idc2 = np.arange(1, pred_acc.shape[0] - 1)
+
+            (
+                ir_metrics,
+                ir_transforms,
+                counter,
+            ) = register_volumes(
+                windows,
+                start,
+                pred_acc_ir,
+                pred_inbetween,
+                gt_acc,
+                config,
+                counter=counter,
+                frame_callback=frame_callback,
+            )
 
     else:
 
@@ -1035,7 +1140,11 @@ def main():
                             node_j=idc2[transform_index - 1],
                             transform=ir_transforms[transform_index],
                             noise_sigma=registration_noise_model(
-                                confidence=confidences[transform_index - 1],
+                                confidence=(
+                                    confidences[transform_index - 1]
+                                    if confidences is not None
+                                    else 1.0
+                                ),
                                 ref_sigma=ref_sigma,
                             ),
                         )

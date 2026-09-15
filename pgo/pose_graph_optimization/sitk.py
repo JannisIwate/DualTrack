@@ -20,7 +20,7 @@ def sitk_2d_register(
     metric: str = "mi",
     optimizer:str = "gradient",
     options: str = "",
-    replace_pred_factor: float = 0.1,
+    replace_pred_factor: float = 1.0,
 ) -> tuple[
     np.ndarray,
     float,
@@ -156,7 +156,7 @@ def sitk_2d_register(
     )
 
 
-def sitk_3d_register( # benutzt alle 20 Kerne
+def sitk_3d_register_s_to_v( # benutzt alle 20 Kerne
     volume_frames: np.ndarray,
     volume_poses: np.ndarray,
     slice_frame: np.ndarray,
@@ -218,10 +218,10 @@ def sitk_3d_register( # benutzt alle 20 Kerne
 
     # init IR
     reg_init_time_start = time.time()
-    # fixed = slice_volume
-    # moving = volume
-    fixed = volume
-    moving = slice_volume
+    fixed = slice_volume
+    moving = volume
+    # fixed = volume
+    # moving = slice_volume
 
     if "roi" in options:
         roi_size, roi_index = get_center_roi_params(fixed.GetSize(), (0.5, 0.5, 1.0))
@@ -272,6 +272,7 @@ def sitk_3d_register( # benutzt alle 20 Kerne
             moving,
             np.eye(4),
             transform_type,
+            True
         )
     registration.SetInitialTransform(initial)
     # metric_before_identity = registration.MetricEvaluate(
@@ -321,12 +322,127 @@ def sitk_3d_register( # benutzt alle 20 Kerne
         print(f"Metric after: {metric_after:.4f}")
 
     return (
-            transform_reg_inv, # pose relative to first window frame pose
+            # transform_reg_inv, # pose relative to first window frame pose
+            transform_reg,
             float(metric_before_identity),
             float(metric_before_gt),
             float(metric_before_pred),
             float(metric_after),
         )
+
+
+def sitk_3d_register_s_to_s(
+    frame_i: np.ndarray,
+    frame_j: np.ndarray,
+    relative_transform: np.ndarray,
+    relative_transform_gt: np.ndarray | None = None,
+    metric: str = "mi",
+    optimizer: str = "gradient",
+    options: str = "",
+    transform_type: str = "versor",
+    replace_pred_factor: float = 1.0,
+) -> tuple[
+    np.ndarray,
+    float,
+    float,
+    float,
+    float,
+]:
+    options = options or ""
+
+    frame_i_origin = frame_j_origin = (ORIGIN_X, ORIGIN_Y)
+    if "crop" in options:
+        frame_i, (offset_i_y, offset_i_x) = crop_center_frames(frame_i, (0.5, 0.5))
+        frame_j, (offset_j_y, offset_j_x) = crop_center_frames(frame_j, (0.5, 0.5))
+        frame_i_origin = (
+            ORIGIN_X + offset_i_x * SPACING_X,
+            ORIGIN_Y + offset_i_y * SPACING_Y,
+        )
+        frame_j_origin = (
+            ORIGIN_X + offset_j_x * SPACING_X,
+            ORIGIN_Y + offset_j_y * SPACING_Y,
+        )
+
+    moving = slice_to_volume(
+        frame_i,
+        np.eye(4),
+        (SPACING_X, SPACING_Y, SPACING_X),
+        (*frame_i_origin, 0.0),
+        thickness=4,
+    )
+    fixed = slice_to_volume(
+        frame_j,
+        np.eye(4),
+        (SPACING_X, SPACING_Y, SPACING_X),
+        (*frame_j_origin, 0.0),
+        thickness=4,
+    )
+
+    if "roi" in options:
+        roi_size, roi_index = get_center_roi_params(fixed.GetSize(), (0.5, 0.5, 1.0))
+        fixed = sitk.RegionOfInterest(fixed, size=roi_size, index=roi_index)
+        roi_size, roi_index = get_center_roi_params(moving.GetSize(), (0.5, 0.5, 1.0))
+        moving = sitk.RegionOfInterest(moving, size=roi_size, index=roi_index)
+
+    registration = build_registration_object(metric, optimizer, options)
+
+    # identity = set_transform_from_pose(
+    #     fixed,
+    #     moving,
+    #     np.eye(4),
+    #     transform_type,
+    #     centered=False,
+    # )
+    # registration.SetInitialTransform(identity)
+    # metric_before_identity = registration.MetricEvaluate(fixed, moving)
+
+    initial = set_transform_from_pose(
+        fixed,
+        moving,
+        # relative_transform,
+        np.eye(4),
+        transform_type,
+        centered=False,
+    )
+    registration.SetInitialTransform(initial)
+    # metric_before_pred = registration.MetricEvaluate(fixed, moving)
+
+    # if relative_transform_gt is None:
+    #     metric_before_gt = 0.0
+    # else:
+    #     gt_initial = set_transform_from_pose(
+    #         fixed,
+    #         moving,
+    #         relative_transform_gt,
+    #         transform_type,
+    #         centered=False,
+    #     )
+    #     registration.SetInitialTransform(gt_initial)
+    #     metric_before_gt = registration.MetricEvaluate(fixed, moving)
+
+    if "show_ir" in options:
+        show_volumes(
+            volumes=[fixed, moving],
+            volume_poses=[np.eye(4), relative_transform],
+            volume_outline_colors=["red", "green"],
+            volume_labels=["fixed", "moving"]
+        )
+
+    registration.SetInitialTransform(initial)
+    transform_reg = registration.Execute(fixed=fixed, moving=moving)
+    # print(relative_transform_gt)
+    # print(sitk_to_6dof(transform_reg))
+
+    return (
+        sitk_to_6dof(transform_reg),
+        # float(metric_before_identity),
+        # float(metric_before_gt),
+        # float(metric_before_pred),
+        0,
+        0,
+        0,
+        float(registration.GetMetricValue()),
+    )
 
 
 def show_volumes(
@@ -438,7 +554,8 @@ def _sitk_to_grid(img: sitk.Image):
 def set_transform_from_pose(fixed,
                             moving,
                             pose,
-                            transform_type):
+                            transform_type,
+                            centered=True):
 
     R = pose[:3, :3].astype(np.float64)
     t = pose[:3, 3].astype(np.float64)
@@ -461,13 +578,13 @@ def set_transform_from_pose(fixed,
     else:
         raise ValueError(f"Unknown transform_type '{transform_type}'")
 
-    # center
-    initial = sitk.CenteredTransformInitializer(
-        fixed,
-        moving,
-        initial,
-        sitk.CenteredTransformInitializerFilter.GEOMETRY,
-    )
+    if centered:
+        initial = sitk.CenteredTransformInitializer(
+            fixed,
+            moving,
+            initial,
+            sitk.CenteredTransformInitializerFilter.GEOMETRY,
+        )
 
     return initial
 
@@ -712,7 +829,7 @@ def build_volume_from_slices(
         mask_image.CopyInformation(volume)
         volume = _fill_interior_holes(volume, mask_image)
 
-    # volume = sitk.Expand(volume, [1, 1, 4])
+    volume = sitk.Expand(volume, [1, 1, 4])
 
     # print("rotation determinants:", [
     #     np.linalg.det(pose[:3, :3]) for pose in poses

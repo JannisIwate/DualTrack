@@ -7,6 +7,11 @@ cd "$WORKDIR" || exit 1
 ## Notes
 # --include_full_ddf: computes ddf metrics for all points/pixels, does not run on weak pc
 
+DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final_training.yaml --log_dir experiment/dualtrack_24/tusrec_24_train --save_predictions --overwrite_log_dir --nr_scans 100
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_24_training.yaml --log_dir experiment/dualtrack_25/tusrec_24_train/run_1 --save_predictions --overwrite_log_dir  --nr_scans 100
+python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_ft_tus_rec_2025_full_training.yaml --log_dir experiment/dualtrack_25/tusrec_25_train/run_1 --save_predictions --overwrite_log_dir  --nr_scans 100
+
+
 
 ### DualTrack25
 
@@ -76,7 +81,7 @@ cd "$WORKDIR" || exit 1
 # transformer: default (local_encoder_transform)
 # extras: /
 
-DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run --overwrite_log_dir --save_predictions 
+# DUALTRACK_FINAL_CHECKPOINT_PATH=/mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/model/dualtrack_tusrec24.pt python evaluate.py -c configs/dualtrack_evaluation_jannis/dualtrack_final.yaml --log_dir experiment/dualtrack_24/tusrec_24_val/validation_run --overwrite_log_dir --save_predictions 
 
 # -> results in /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_24/tusrec_24_val/validation_run_original
 # -> performance from repo/paper recreated (avg gpe of 4.9mm)

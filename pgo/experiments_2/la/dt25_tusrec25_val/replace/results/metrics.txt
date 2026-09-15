@@ -1,0 +1,17 @@
+initial:
+
+  number of scans: 6
+  number of failed scans: 0
+
+  final_drift_rate: 60.61640914818822
+  avg_drift_rate: 44.047075373494124
+  max_drift: 11.321466276210955
+  sum_of_drift: 8022.368835387487
+
+  avg_global_displacement_error: 7.929418563842773
+  max_global_displacement_error: 14.185700098673502
+  avg_local_displacement_error: 0.17046539733807245
+  max_local_displacement_error: 1.1987188160419464
+  tusrec_final_score: 0.6373641032386484
+  relative_global_err_pct: 0.3123055323958397
+

@@ -1,0 +1,54 @@
+initial:
+
+  number of scans: 72
+  number of failed scans: 0
+
+  final_drift_rate: 5.09618101271194
+  avg_drift_rate: 5.876242424534398
+  max_drift: 8.329956877535878
+  sum_of_drift: 1923.794039450986
+
+  avg_global_displacement_error: 4.92498818371031
+  max_global_displacement_error: 9.404149668084251
+  avg_local_displacement_error: 0.12209264437357585
+  max_local_displacement_error: 0.49249398128853905
+  tusrec_final_score: 0.5966034108149381
+  relative_global_err_pct: 0.07636673427704307
+
+after pgo:
+
+  final_drift_rate: 15.79696690423136
+  avg_drift_rate: 14.474785720997229
+  max_drift: 24.72953308163376
+  sum_of_drift: 5677.574725642755
+
+  avg_global_displacement_error: 13.708709670437706
+  max_global_displacement_error: 27.006553994284737
+  avg_local_displacement_error: 0.15975995982686678
+  max_local_displacement_error: 0.5673294564088186
+  tusrec_final_score: 0.5979578284245872
+  relative_global_err_pct: 0.17465762173136076
+
+  pgo execution time: 0.016802473200692072
+
+image registration:
+
+  metric: mse
+  metric_before: 76.51454137043838
+  metric_before_gt: 66.58018298536858
+  metric_before_pred: 64.87628896235665
+  metric_after: 63.50339168083215
+  ir_execution_time: 0.05853835578657623
+
+  final_drift_rate: 11.86757680742481
+  avg_drift_rate: 14.460884275588793
+  max_drift: 24.722490016673085
+  sum_of_drift: 5671.496671258894
+
+  avg_global_displacement_error: 11.001789093017578
+  max_global_displacement_error: 27.000442875756157
+  avg_local_displacement_error: 0.1597112055040068
+  max_local_displacement_error: 0.5669716352389919
+  tusrec_final_score: 0.5980548932217813
+  relative_global_err_pct: 0.17482254871477684
+

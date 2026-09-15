@@ -5,7 +5,11 @@ from pose_graph_optimization.utils import accumulate
 from pose_graph_optimization.utils import pose3_to_se2
 from scipy.spatial.transform import Rotation
 from src.submission.tus_rec_challenge_baseline import transform
-from pose_graph_optimization.sitk import sitk_2d_register, sitk_3d_register
+from pose_graph_optimization.sitk import (
+    sitk_2d_register,
+    sitk_3d_register_s_to_s,
+    sitk_3d_register_s_to_v,
+)
 
 
 def register_2d(
@@ -105,6 +109,44 @@ def register_3d(window: np.ndarray,
     window_size = len(window)
     center = window_size // 2
 
+    registration_type = sitk_cfg.get("registration_type", "s_to_v")
+    sitk_kwargs = {
+        key: value for key, value in sitk_cfg.items()
+        if key != "registration_type"
+    }
+
+    if registration_type == "s_to_s":
+        if window_size < 2:
+            raise ValueError("Slice-to-slice registration requires at least two frames.")
+        frame_i = window[center - 1]
+        frame_j = window[center]
+        relative_transform = np.linalg.inv(pred_acc[center - 1]) @ pred_acc[center]
+        relative_transform_gt = np.linalg.inv(gt_acc[center - 1]) @ gt_acc[center]
+
+        return_transform = sitk_3d_register_s_to_s(
+            frame_i=frame_i,
+            frame_j=frame_j,
+            relative_transform=relative_transform,
+            relative_transform_gt=relative_transform_gt,
+            **sitk_kwargs,
+        )
+        T_reg = return_transform[0]
+        T_reg_global = pred_acc[center - 1] @ T_reg
+
+        return (
+            T_reg_global,
+            return_transform[1],
+            return_transform[2],
+            return_transform[3],
+            return_transform[4],
+        )
+
+    if registration_type != "s_to_v":
+        raise ValueError(
+            f"Unknown 3D registration type '{registration_type}'. "
+            "Use 's_to_v' or 's_to_s'."
+        )
+
     volume_frames = np.delete(window, center, axis=0)
     pred_first_inverse = np.linalg.inv(pred_acc[0])
     gt_first_inverse = np.linalg.inv(gt_acc[0])
@@ -122,13 +164,13 @@ def register_3d(window: np.ndarray,
         metric_before_gt_forward,
         metric_before_pred_forward,
         metric_after_forward,
-    ) = sitk_3d_register(
+    ) = sitk_3d_register_s_to_v(
         volume_frames=volume_frames,
         volume_poses=volume_poses,
         slice_frame=slice_frame,
         slice_frame_pose=slice_frame_pose,
         slice_frame_pose_gt=slice_frame_pose_gt,
-        **sitk_cfg,
+        **sitk_kwargs,
     )
 
     # compute global pose

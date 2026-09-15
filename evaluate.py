@@ -31,7 +31,6 @@ def test(args, cfg):
         nr_scans=args.nr_scans,
         overwrite_output_dir=args.overwrite_log_dir,
     )
-    print(metrics)
     
     if args.log_wandb: 
         wandb.init(
