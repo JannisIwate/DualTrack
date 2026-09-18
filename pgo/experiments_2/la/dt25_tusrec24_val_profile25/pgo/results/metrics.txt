@@ -29,5 +29,9 @@ after pgo:
   tusrec_final_score: 0.5925082730631153
   relative_global_err_pct: 0.33942197428809273
 
-  pgo execution time: 0.013548685444725884
+  pgo_execution_time_per_scan: 0.01357762681113349
+
+linear approximation:
+
+  execution_time_per_frame: 7.919489387252237e-05
 

@@ -68,7 +68,7 @@ def init_results() -> dict:
         "pgo": {
             "drift_metrics_original": [], "drift_metrics_after_pgo": [],
             "ddf_metrics_original": [], "ddf_metrics_after_pgo": [],
-            "pgo execution time": [],
+            "pgo_execution_time_per_scan": [],
             "graph": None, "initial": None, "optimized": None,
         },
         "ir": {
@@ -76,6 +76,12 @@ def init_results() -> dict:
             "transforms": {"ir_transforms": [], "ir_gt_transforms": [], "ir_ref_transforms": []},
             "drift_metrics_after_ir": [], "ddf_metrics_after_ir": [],
             "figs_individual": {}, "figs_general": {},
+        },
+        "la": {
+            "execution_time_per_frame": []
+        },
+        "loop_closure": {
+            "execution_time_per_scan": []
         },
     }
 
@@ -395,7 +401,7 @@ def linear_approximation(
             (1.0 + slopes[dof])
         )
 
-        # only keep reasonable corrections (doesn't help)
+        # only keep reasonable corrections
         ratio = np.abs(la) / np.maximum(np.abs(pred), 1e-8)
         valid = ratio <= max_factor
 
@@ -495,17 +501,17 @@ def register_frame_pairs(
     ir_metrics = {
         "metric": config.image_registration.sitk.metric,
         "metric_before": [], "metric_before_gt": [], "metric_before_pred": [],
-        "metric_after": [], "ir_execution_time": [],
+        "metric_after": [], "ir_execution_time_per_scan": [],
     }
     confidences = []
     ir_transforms = np.tile(np.eye(4), (ir_ref.shape[0], 1, 1))
+
+    start_time = time.time()
 
     for i, _ in enumerate(idc1):
 
         if frame_callback is not None:
             frame_callback(int(idc2[i]))
-
-        start_time = time.time()
         (
             transform_ir,
             confidence,
@@ -528,8 +534,9 @@ def register_frame_pairs(
         ir_metrics["metric_before_gt"].append(m_before_gt)
         ir_metrics["metric_before_pred"].append(m_before_pred)
         ir_metrics["metric_after"].append(m_after)
-        ir_metrics["ir_execution_time"].append(time.time() - start_time)
         ir_transforms[i + 1] = transform_ir
+
+    ir_metrics["ir_execution_time_per_scan"].append(time.time() - start_time)
 
     return (
         ir_metrics,
@@ -555,7 +562,7 @@ def register_volumes(
         "metric_before_gt": [],
         "metric_before_pred": [],
         "metric_after": [],
-        "ir_execution_time": [],
+        "ir_execution_time_per_scan": [],
     }
 
     # Reference transforms are used by default.
@@ -593,7 +600,7 @@ def register_volumes(
         ir_metrics["metric_before_gt"].append(m_before_gt)
         ir_metrics["metric_before_pred"].append(m_before_pred)
         ir_metrics["metric_after"].append(m_after)
-        ir_metrics["ir_execution_time"].append(time.time() - start_time)
+        ir_metrics["ir_execution_time_per_scan"].append(time.time() - start_time)
 
         center_idx = first_registered + i
 
@@ -633,7 +640,7 @@ def register_slice_pairs(
         "metric_before_gt": [],
         "metric_before_pred": [],
         "metric_after": [],
-        "ir_execution_time": [],
+        "ir_execution_time_per_scan": [],
     }
 
     ir_global = np.copy(pred_acc)
@@ -641,11 +648,12 @@ def register_slice_pairs(
     idc1 = np.arange(len(frames) - 1)
     idc2 = idc1 + 1
 
+    start_time = time.time()
+
     for frame_i_idx, frame_j_idx in zip(idc1, idc2):
         if frame_callback is not None:
             frame_callback(int(frame_j_idx))
 
-        start_time = time.time()
         (
             ir_transform_global,
             m_before_id,
@@ -663,7 +671,6 @@ def register_slice_pairs(
         ir_metrics["metric_before_gt"].append(m_before_gt)
         ir_metrics["metric_before_pred"].append(m_before_pred)
         ir_metrics["metric_after"].append(m_after)
-        ir_metrics["ir_execution_time"].append(time.time() - start_time)
         ir_global[frame_j_idx] = ir_transform_global
 
         if cfg_has(config, "image_registration.sitk.options") and \
@@ -683,6 +690,7 @@ def register_slice_pairs(
         ir_transforms[frame_j_idx] = (
             np.linalg.inv(ir_global[frame_i_idx]) @ ir_global[frame_j_idx]
         )
+    ir_metrics["ir_execution_time_per_scan"].append(time.time() - start_time)
 
     return (
         ir_metrics,
@@ -848,7 +856,10 @@ def run_image_registration(
     ir["transforms"]["ir_transforms"].append(ir_transforms)
     ir["transforms"]["ir_gt_transforms"].append(ir_gt)
     ir["transforms"]["ir_ref_transforms"].append(ir_ref)
+    # print(inbetween_to_accumulated(ir_ref)[-1])
+    # print(ir_transforms_acc[-1])
     ir["drift_metrics_after_ir"].append(get_drift_metrics(ir_gt_acc, ir_transforms_acc))
+    # print(ir["drift_metrics_after_ir"])
     ir["ddf_metrics_after_ir"].append(get_ddf_metrics(
         ir_transforms_acc, ir_transforms, ir_gt_acc, ir_gt,
         scan["calibration_matrix"], scan["image_shape_hw"], mode="5pt-landmark",
@@ -965,8 +976,10 @@ def save_all_results(results: dict, config):
         number_of_scans=results["scans_evaluated"],
         number_of_failed_scans=results["failed_scans"],
         metrics_original=[pgo["drift_metrics_original"], pgo["ddf_metrics_original"]],
-        metrics_after_pgo=[pgo["drift_metrics_after_pgo"], pgo["ddf_metrics_after_pgo"], pgo["pgo execution time"]],
+        metrics_after_pgo=[pgo["drift_metrics_after_pgo"], pgo["ddf_metrics_after_pgo"], pgo["pgo_execution_time_per_scan"]],
         ir_metrics=[ir["metrics"], ir["drift_metrics_after_ir"], ir["ddf_metrics_after_ir"]],
+        la_metrics=results["la"]["execution_time_per_frame"],
+        loop_closure_metrics=results["loop_closure"]["execution_time_per_scan"],
         figs_individual=ir["figs_individual"], figs_general=ir["figs_general"],
     )
 
@@ -1045,9 +1058,16 @@ def main():
 
             quantile, scale = get_linear_approximation_parameters(config)
 
+            la_start = time.time()
             pred_inbetween = linear_approximation(
                 pred_inbetween, quantile, scale,
                 *get_linear_approximation_profile(config),
+            )
+            la_elapsed = time.time() - la_start
+            nr_frames_la = len(pred_inbetween)
+
+            results["la"]["execution_time_per_frame"].append(
+                {"execution_time_per_frame": la_elapsed / nr_frames_la if nr_frames_la else 0.0}
             )
 
             pred_acc = inbetween_to_accumulated(pred_inbetween)
@@ -1070,12 +1090,18 @@ def main():
 
                     plt.close(fig)
 
+                lc_start = time.time()
+
                 loop_closures = detect_loop_closures(
                     pred_poses=pred_acc, frames=scan["frames"],
                     transforms=pred_inbetween, gt_transforms=scan["gt_inbetween"],
                     plot_callback=show_loop_closure,
                     frame_callback=update_frame_progress,
                     **config.loop_closure,
+                )
+
+                results["loop_closure"]["execution_time_per_scan"].append(
+                    {"execution_time_per_scan": time.time() - lc_start}
                 )
 
                 for lc in loop_closures:
@@ -1097,9 +1123,16 @@ def main():
 
                 quantile, scale = get_linear_approximation_parameters(config)
 
+                la_start = time.time()
                 pred_inbetween_la = linear_approximation(
                     pred_inbetween, quantile, scale,
                     *get_linear_approximation_profile(config),
+                )
+                la_elapsed = time.time() - la_start
+                nr_frames_la = len(pred_inbetween_la)
+
+                results["la"]["execution_time_per_frame"].append(
+                    {"execution_time_per_frame": la_elapsed / nr_frames_la if nr_frames_la else 0.0}
                 )
 
                 for node_index, transform in enumerate(pred_inbetween_la[1:-1]):
@@ -1157,8 +1190,8 @@ def main():
             start = time.time()
 
             results["pgo"]["graph"], _, pred_optimized = pred_graph.build_graph()
-            results["pgo"]["pgo execution time"].append(
-                {"pgo execution time": time.time() - start}
+            results["pgo"]["pgo_execution_time_per_scan"].append(
+                {"pgo_execution_time_per_scan": time.time() - start}
             )
 
             optimized_pred = gtsam_to_numpy(pred_optimized)
@@ -1188,6 +1221,18 @@ def main():
         ir_list_lengths = {
             key: len(value)
             for key, value in results["ir"].items()
+            if isinstance(value, list)
+        }
+        
+        la_list_lengths = {
+            key: len(value)
+            for key, value in results["la"].items()
+            if isinstance(value, list)
+        }
+
+        loop_closure_list_lengths = {
+            key: len(value)
+            for key, value in results["loop_closure"].items()
             if isinstance(value, list)
         }
 
@@ -1228,6 +1273,14 @@ def main():
             for key, length in ir_transform_lengths.items():
 
                 del results["ir"]["transforms"][key][length:]
+
+            for key, length in la_list_lengths.items():
+
+                del results["la"][key][length:]
+
+            for key, length in loop_closure_list_lengths.items():
+
+                del results["loop_closure"][key][length:]
 
             results["pgo"].update(previous_pgo_state)
             results["ir"]["metrics"] = previous_ir_metrics

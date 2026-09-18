@@ -8,11 +8,13 @@ general:
   # nr_frames: 5
   options: [save_after_each_scan]
 
+pgo: {}
+
 image_registration:
   ir_type: "3d"
   window_size: 5
   sitk:
-    metric: "mi"
+    metric: "mse"
     optimizer: "gradient"
     transform_type: "euler"
     registration_type: "s_to_v"

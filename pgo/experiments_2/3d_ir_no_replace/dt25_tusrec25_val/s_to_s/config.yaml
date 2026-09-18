@@ -1,0 +1,23 @@
+dirs:
+  input_pred: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/experiment/dualtrack_25/tusrec_25_val/validation_run/scans
+  input_gt: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/DualTrack_auxiliary/validation_data_tusrec25_converted
+  output_dir: /mnt/c/Users/Jannis/Documents/Thesis_Prima/DualTrack/pgo/experiments_2/3d_ir_no_replace/dt25_tusrec25_val/s_to_s
+
+general:
+  # nr_scans: 1
+  # nr_frames: 5
+  options: [save_after_each_scan]
+
+pgo: {}
+
+image_registration:
+  ir_type: "3d"
+  window_size: 5
+  sitk:
+    metric: "mse"
+    optimizer: "gradient"
+    transform_type: "euler"
+    registration_type: "s_to_s"
+    options: [crop]
+
+plot: [plot_ir_error_magnitudes, plot_ir_pose_differences, plot_ir_trajectories]

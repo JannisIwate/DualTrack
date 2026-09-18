@@ -57,6 +57,8 @@ def save_results(
     metrics_original: Sequence[dict[str, float]] | None = None,
     metrics_after_pgo: Sequence[dict[str, float]] | None = None,
     ir_metrics: dict[str, Sequence[float]] | None = None,
+    la_metrics: Sequence[dict[str, float]] | None = None,
+    loop_closure_metrics: Sequence[dict[str, float]] | None = None,
     figs_individual: dict | None = None,
     figs_general: dict | None = None,
 ) -> None:
@@ -99,17 +101,49 @@ def save_results(
         if len(ir_metrics[0]) > 0:
 
             f.write("image registration:\n\n")
+            # print(ir_metrics)
             
             for metrics in ir_metrics:
 
                 if len(metrics) > 0:
 
+                    if isinstance(metrics, dict):
+                                                        
+                        max_len = max((len(v) for v in metrics.values()))
+                        metrics = {
+                            k: v + [np.nan] * (max_len - len(v)) if isinstance(v, list) else v
+                            for k, v in metrics.items()
+                        }
+
                     ir_df = pd.DataFrame(metrics)
-                    f.write(f"  {ir_df.keys()[0]}: {ir_df.iloc[0, 0]}\n") # write metric type
-                    ir_mean = ir_df.loc[:, ir_df.columns[1:]].mean()
-                    for key, value in ir_mean.items():
+                    numeric_cols = ir_df.select_dtypes(include="number").columns
+                    non_numeric_cols = ir_df.columns.difference(numeric_cols)
+
+                    for col in non_numeric_cols:          # z.B. "metric": "mi" -> einmalig
+
+                        f.write(f"  {col}: {ir_df[col].iloc[0]}\n")
+
+                    for key, value in ir_df[numeric_cols].mean().items():   # ALLE numerischen Spalten mitteln
+                        
                         f.write(f"  {key}: {value}\n")
                     f.write("\n")
+            # breakpoint()
+                    
+        if la_metrics:
+
+            f.write("linear approximation:\n\n")
+            la_df = pd.DataFrame(la_metrics).mean()
+            for key, value in la_df.items():
+                f.write(f"  {key}: {value}\n")
+            f.write("\n")
+
+        if loop_closure_metrics:
+
+            f.write("loop closure:\n\n")
+            lc_df = pd.DataFrame(loop_closure_metrics).mean()
+            for key, value in lc_df.items():
+                f.write(f"  {key}: {value}\n")
+            f.write("\n")
 
     if graph is not None and initial is not None and optimized is not None:
         graph_path = os.path.join(output_dir, "graph.h5")

@@ -29,7 +29,7 @@ after pgo:
   tusrec_final_score: 0.6247876189971673
   relative_global_err_pct: 0.41142644981543225
 
-  pgo execution time: 0.05530389149983724
+  pgo_execution_time_per_scan: 0.05702881018320719
 
 image registration:
 
@@ -38,7 +38,7 @@ image registration:
   metric_before_gt: -0.9352283689094223
   metric_before_pred: -0.9372786518587686
   metric_after: -0.9400027706061085
-  ir_execution_time: 0.0663771008925477
+  ir_execution_time_per_scan: 99.02923440933228
 
   final_drift_rate: 104.03976852069741
   avg_drift_rate: 62.41972885936368

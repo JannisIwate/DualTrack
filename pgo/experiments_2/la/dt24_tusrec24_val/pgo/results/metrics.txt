@@ -1,33 +1,37 @@
 initial:
 
-  number of scans: 72
+  number of scans: 5
   number of failed scans: 0
 
-  final_drift_rate: 5.09618101271194
-  avg_drift_rate: 5.876242424534398
-  max_drift: 8.329956877535878
-  sum_of_drift: 1923.794039450986
+  final_drift_rate: 3.890140742434903
+  avg_drift_rate: 5.730103320701976
+  max_drift: 5.902180135533018
+  sum_of_drift: 1388.5269027760517
 
-  avg_global_displacement_error: 4.92498818371031
-  max_global_displacement_error: 9.404149668084251
-  avg_local_displacement_error: 0.12209264437357585
-  max_local_displacement_error: 0.49249398128853905
-  tusrec_final_score: 0.5966034108149381
-  relative_global_err_pct: 0.07636673427704307
+  avg_global_displacement_error: 4.4789361476898195
+  max_global_displacement_error: 7.432871532440186
+  avg_local_displacement_error: 0.129220674932003
+  max_local_displacement_error: 0.5268754839897156
+  tusrec_final_score: 0.5584573189368354
+  relative_global_err_pct: 0.07807655334472656
 
 after pgo:
 
-  final_drift_rate: 5.484782266182902
-  avg_drift_rate: 6.417740148352414
-  max_drift: 9.052680706773021
-  sum_of_drift: 2120.394537960921
+  final_drift_rate: 3.6068490721863697
+  avg_drift_rate: 5.614356753798417
+  max_drift: 5.879558285005658
+  sum_of_drift: 1292.3421359152198
 
-  avg_global_displacement_error: 5.706233772966597
-  max_global_displacement_error: 10.394349571731356
-  avg_local_displacement_error: 0.1251949936979347
-  max_local_displacement_error: 0.49755248096254134
-  tusrec_final_score: 0.5824644762672153
-  relative_global_err_pct: 0.08854737417358491
+  avg_global_displacement_error: 4.54980616569519
+  max_global_displacement_error: 7.404656600952149
+  avg_local_displacement_error: 0.13153209835290908
+  max_local_displacement_error: 0.5325083374977112
+  tusrec_final_score: 0.5538324414116946
+  relative_global_err_pct: 0.08024107515811921
 
-  pgo execution time: 0.015798197852240667
+  pgo_execution_time_per_scan: 0.01478891372680664
+
+linear approximation:
+
+  execution_time_per_frame: 8.396100110906942e-05
 

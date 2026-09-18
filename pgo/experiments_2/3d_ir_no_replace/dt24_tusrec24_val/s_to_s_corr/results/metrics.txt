@@ -1,0 +1,5 @@
+initial:
+
+  number of scans: 0
+  number of failed scans: 0
+

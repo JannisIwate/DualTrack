@@ -15,3 +15,7 @@ initial:
   tusrec_final_score: 0.6373641032386484
   relative_global_err_pct: 0.3123055323958397
 
+linear approximation:
+
+  execution_time_per_frame: 7.599138905081209e-05
+

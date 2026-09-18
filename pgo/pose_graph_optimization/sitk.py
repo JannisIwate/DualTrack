@@ -1,7 +1,6 @@
 import numpy as np
 import SimpleITK as sitk
 from matplotlib import pyplot as plt
-from pose_graph_optimization.sitk_old import image_plot
 from pose_graph_optimization.utils import accumulate
 from pose_graph_optimization.utils import pose3_to_se2
 from pose_graph_optimization.defines import *
@@ -32,6 +31,8 @@ def sitk_2d_register(
     # init
     # --------------------------------------------------------
 
+
+
     options = options or ""
 
     crop_offset_y = crop_offset_x = 0
@@ -45,6 +46,12 @@ def sitk_2d_register(
     # fixed = sitk.GetImageFromArray(frame_i.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
     moving = sitk.GetImageFromArray(frame_i.astype(np.float32))
     fixed = sitk.GetImageFromArray(frame_j.astype(np.float32)) # 640x480 (x, y), other way round for sitk!
+
+    ############################
+    # res test
+    fixed = sitk.Shrink(fixed, [2, 2])
+    moving = sitk.Shrink(moving, [2, 2])
+    ############################
 
     if "roi" in options:
 
