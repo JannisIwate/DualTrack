@@ -594,8 +594,6 @@ def register_volumes(
             config.image_registration.sitk,
         )
 
-        # TODO: think about assigning found transform to pred_acc or keeping ref transforms as ref for found pose
-
         ir_metrics["metric_before"].append(m_before_id)
         ir_metrics["metric_before_gt"].append(m_before_gt)
         ir_metrics["metric_before_pred"].append(m_before_pred)

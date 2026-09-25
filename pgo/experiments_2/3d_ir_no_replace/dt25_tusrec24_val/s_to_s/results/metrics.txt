@@ -17,19 +17,19 @@ initial:
 
 after pgo:
 
-  final_drift_rate: 40.14392103467268
-  avg_drift_rate: 43.16662191344465
-  max_drift: 62.59710040099893
-  sum_of_drift: 16230.02442374536
+  final_drift_rate: 28.54749713522193
+  avg_drift_rate: 31.88390743336235
+  max_drift: 44.261283454402786
+  sum_of_drift: 11131.611551021846
 
-  avg_global_displacement_error: 34.596628308296204
-  max_global_displacement_error: 64.80595819155376
-  avg_local_displacement_error: 0.21069727465510368
-  max_local_displacement_error: 0.6426321499877505
-  tusrec_final_score: 0.5572244847308623
-  relative_global_err_pct: 0.44431867574652034
+  avg_global_displacement_error: 24.856234828631084
+  max_global_displacement_error: 47.2125477525923
+  avg_local_displacement_error: 0.22282307967543602
+  max_local_displacement_error: 0.7729378255705038
+  tusrec_final_score: 0.5858965105223477
+  relative_global_err_pct: 0.3424797124332852
 
-  pgo_execution_time_per_scan: 0.045903017123540245
+  pgo_execution_time_per_scan: 0.01663976576593187
 
 image registration:
 
@@ -38,17 +38,17 @@ image registration:
   metric_before_gt: 0.0
   metric_before_pred: 0.0
   metric_after: 58.03098826147548
-  ir_execution_time_per_scan: 132.77070808410645
+  ir_execution_time_per_scan: 131.72274541854858
 
-  final_drift_rate: 13.806611360607333
-  avg_drift_rate: 56.543678007803194
-  max_drift: 85.03103902982846
-  sum_of_drift: 22113.58362741077
+  final_drift_rate: 28.549028013374066
+  avg_drift_rate: 31.872992505801804
+  max_drift: 44.26356427473144
+  sum_of_drift: 11131.97012149433
 
-  avg_global_displacement_error: 17.86843490600586
-  max_global_displacement_error: 86.54452345106337
-  avg_local_displacement_error: 0.2555375587609079
-  max_local_displacement_error: 0.7142471886343427
-  tusrec_final_score: 0.5372144890017662
-  relative_global_err_pct: 0.5752531316959195
+  avg_global_displacement_error: 24.85665800836351
+  max_global_displacement_error: 47.214359760284424
+  avg_local_displacement_error: 0.22282385784718725
+  max_local_displacement_error: 0.7729389634397295
+  tusrec_final_score: 0.5859015052272033
+  relative_global_err_pct: 0.3424809755136569
 

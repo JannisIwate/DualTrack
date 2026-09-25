@@ -17,19 +17,19 @@ initial:
 
 after pgo:
 
-  final_drift_rate: 27.75626230319236
-  avg_drift_rate: 31.32833784498365
-  max_drift: 43.16609406595048
-  sum_of_drift: 11049.716225897828
+  final_drift_rate: 28.165376132193604
+  avg_drift_rate: 31.36680396192868
+  max_drift: 43.66041861812282
+  sum_of_drift: 10934.443094372387
 
-  avg_global_displacement_error: 24.361929999457466
-  max_global_displacement_error: 45.80127051141527
-  avg_local_displacement_error: 0.1826831094092793
-  max_local_displacement_error: 0.6119416596160995
-  tusrec_final_score: 0.5782664446029173
-  relative_global_err_pct: 0.3340920567926433
+  avg_global_displacement_error: 24.47735607624054
+  max_global_displacement_error: 46.6233184867435
+  avg_local_displacement_error: 0.22099294823904833
+  max_local_displacement_error: 0.7643849969738059
+  tusrec_final_score: 0.5862921345509192
+  relative_global_err_pct: 0.3379728452612956
 
-  pgo_execution_time_per_scan: 0.022188895278506808
+  pgo_execution_time_per_scan: 0.02267249756389194
 
 image registration:
 
@@ -37,26 +37,26 @@ image registration:
   metric_before: 0.0
   metric_before_gt: 0.0
   metric_before_pred: 0.0
-  metric_after: -1.1695539168470226
-  ir_execution_time_per_scan: 157.4845530986786
+  metric_after: -1.169553916846506
+  ir_execution_time_per_scan: 160.59091472625732
 
-  final_drift_rate: 14.350634450064115
-  avg_drift_rate: 56.72932452511114
-  max_drift: 85.36327083833612
-  sum_of_drift: 22195.48563038795
+  final_drift_rate: 28.548965446880604
+  avg_drift_rate: 31.875053287971532
+  max_drift: 44.26361718683472
+  sum_of_drift: 11132.324247445438
 
-  avg_global_displacement_error: 18.215003967285156
-  max_global_displacement_error: 86.91019201278687
-  avg_local_displacement_error: 0.2554055926286512
-  max_local_displacement_error: 0.7163175990184149
-  tusrec_final_score: 0.5387535521949065
-  relative_global_err_pct: 0.57695355038676
+  avg_global_displacement_error: 24.85735391245948
+  max_global_displacement_error: 47.21489037407769
+  avg_local_displacement_error: 0.22099863323900434
+  max_local_displacement_error: 0.7653400914536582
+  tusrec_final_score: 0.5855823360428375
+  relative_global_err_pct: 0.3424683194607496
 
 linear approximation:
 
-  execution_time_per_frame: 7.979195451092306e-05
+  execution_time_per_frame: 8.00389217758047e-05
 
 loop closure:
 
-  execution_time_per_scan: 0.03658137056562635
+  execution_time_per_scan: 0.03637808230188158
 

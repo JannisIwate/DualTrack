@@ -59,19 +59,19 @@ CONFIGS=(
 	experiments_2/3d_ir_no_replace/dt25_tusrec25_val/s_to_v/config.yaml
 
 	# # Combined PGO, always last
-	# experiments_2/combined_pgo/3d_ir/dt24_tusrec24_val/s_to_s/config.yaml
-	# experiments_2/combined_pgo/3d_ir/dt24_tusrec24_val/s_to_v/config.yaml
-	# experiments_2/combined_pgo/3d_ir/dt25_tusrec24_val/s_to_s/config.yaml
-	# experiments_2/combined_pgo/3d_ir/dt25_tusrec24_val/s_to_v/config.yaml
-	# experiments_2/combined_pgo/3d_ir/dt25_tusrec25_val/s_to_s/config.yaml
-	experiments_2/combined_pgo/3d_ir/dt25_tusrec25_val/s_to_v/config.yaml
-
 	experiments_2/combined_pgo/3d_ir_no_replace/dt24_tusrec24_val/s_to_s/config.yaml
 	experiments_2/combined_pgo/3d_ir_no_replace/dt24_tusrec24_val/s_to_v/config.yaml
 	experiments_2/combined_pgo/3d_ir_no_replace/dt25_tusrec24_val/s_to_s/config.yaml
 	experiments_2/combined_pgo/3d_ir_no_replace/dt25_tusrec24_val/s_to_v/config.yaml
 	experiments_2/combined_pgo/3d_ir_no_replace/dt25_tusrec25_val/s_to_s/config.yaml
 	experiments_2/combined_pgo/3d_ir_no_replace/dt25_tusrec25_val/s_to_v/config.yaml
+
+	# experiments_2/combined_pgo/3d_ir/dt24_tusrec24_val/s_to_s/config.yaml
+	# experiments_2/combined_pgo/3d_ir/dt24_tusrec24_val/s_to_v/config.yaml
+	# experiments_2/combined_pgo/3d_ir/dt25_tusrec24_val/s_to_s/config.yaml
+	# experiments_2/combined_pgo/3d_ir/dt25_tusrec24_val/s_to_v/config.yaml
+	# experiments_2/combined_pgo/3d_ir/dt25_tusrec25_val/s_to_s/config.yaml
+	experiments_2/combined_pgo/3d_ir/dt25_tusrec25_val/s_to_v/config.yaml
 
 	# experiments/3d_ir/test/config.yaml
 )
