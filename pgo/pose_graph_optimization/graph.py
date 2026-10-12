@@ -1,9 +1,11 @@
+import warnings
+
 import numpy as np
 import gtsam
 from gtsam import NonlinearFactorGraph, Values, noiseModel
 from pose_graph_optimization.utils import mat4_to_pose3
 
-
+# Alles von Claude!!!
 class PoseGraph:
 
     def __init__(
@@ -12,11 +14,19 @@ class PoseGraph:
         constraints: np.ndarray,
         initial_pose: np.ndarray | None = None,
         noise_type: str = "gaussian",
-        prior_noise_sigma = 1e-5,
-        odom_noise_sigma = 1e-2,
+        prior_noise_sigma=1e-5,
+        odom_noise_sigma=1e-2,
         optimizer: str = "gauss-newton",
         optimizer_params: dict[str, object] | None = None,
+        constraint_offset: int | None = None,
     ):
+        """
+        constraint_offset:
+            0    -> constraints[i] ist die Transformation  i -> i+1   (len == N-1)
+            1    -> constraints[k] ist die Transformation  k-1 -> k   (len == N,
+                    constraints[0] wird ignoriert)
+            None -> automatisch: waehlt den Offset, der am besten zu abs_poses passt
+        """
         self.abs_poses = poses
         self.constraints = constraints
         self.initial_pose = initial_pose
@@ -30,11 +40,7 @@ class PoseGraph:
         self.optimizer_params = optimizer_params or {}
 
         self.N = poses.shape[0]
-
-        # if len(constraints) != self.N - 1:
-        #     raise ValueError(
-        #         "Expected len(rel_poses) == N - 1."
-        #     )
+        self.constraint_offset = self._resolve_offset(constraint_offset)
 
         self.additional_constraints = []
 
@@ -42,6 +48,59 @@ class PoseGraph:
         self.initial = None
         self.optimized = None
 
+    # ------------------------------------------------------------------
+    # Index-Handling
+    # ------------------------------------------------------------------
+    def _relative_from_abs(self, i: int) -> np.ndarray:
+        """Erwartete Relativtransformation i -> i+1 aus den absoluten Posen."""
+        return np.linalg.inv(self.abs_poses[i]) @ self.abs_poses[i + 1]
+
+    def _deviation(self, offset: int) -> float:
+        """Maximale Abweichung zwischen constraints und aus abs_poses abgeleiteten Relativposen."""
+        return max(
+            np.abs(self._relative_from_abs(i) - self.constraints[i + offset]).max()
+            for i in range(self.N - 1)
+        )
+
+    def _resolve_offset(self, offset: int | None) -> int:
+        n_c = len(self.constraints)
+
+        valid = []
+        if n_c >= self.N - 1:
+            valid.append(0)
+        if n_c >= self.N:
+            valid.append(1)
+
+        if offset is not None:
+            if offset not in valid:
+                raise ValueError(
+                    f"constraint_offset={offset} passt nicht zu "
+                    f"N={self.N} Posen und {n_c} Constraints."
+                )
+            return offset
+
+        if not valid:
+            raise ValueError(
+                f"Zu wenige Constraints: N={self.N}, len(constraints)={n_c}."
+            )
+
+        devs = {o: self._deviation(o) for o in valid}
+        best = min(devs, key=devs.get)
+
+        if devs[best] > 1e-6:
+            warnings.warn(
+                f"Constraints sind nicht konsistent zu abs_poses "
+                f"(max. Abweichung je Offset: {devs}). "
+                f"Verwende Offset {best}."
+            )
+        return best
+
+    def _edges(self):
+        """Liefert (i, j, T_ij) fuer alle Odometrie-Kanten mit korrektem Index."""
+        for i in range(self.N - 1):
+            yield i, i + 1, self.constraints[i + self.constraint_offset]
+
+    # ------------------------------------------------------------------
     def _create_noise_model(self, sigma):
 
         sigma = np.asarray(sigma)
@@ -64,7 +123,7 @@ class PoseGraph:
         node_i,
         node_j,
         transform: np.ndarray,
-        noise_sigma:gtsam.gtsam.noiseModel.Base = None,
+        noise_sigma: gtsam.gtsam.noiseModel.Base = None,
     ):
         # default values
         if noise_sigma is None:
@@ -84,7 +143,7 @@ class PoseGraph:
         self.graph = NonlinearFactorGraph()
         self.initial = Values()
 
-        ## insert nodes
+        # insert nodes
         for idx in range(self.N):
             self.initial.insert(
                 idx,
@@ -106,35 +165,30 @@ class PoseGraph:
             )
         )
 
-        # add constraints
+        # odometry noise per edge
         if np.isscalar(self.odom_noise_sigma):
-
             edge_noises = [self.odom_noise_sigma] * (self.N - 1)
-
         else:
-
             if len(self.odom_noise_sigma) != self.N - 1:
                 raise ValueError(
                     f"Expected {self.N - 1} odom noises "
                     f"but got {len(self.odom_noise_sigma)}"
                 )
-
             edge_noises = self.odom_noise_sigma
 
-        for i in range(self.N - 1):
-
+        # odometry constraints (korrekt indiziert)
+        for k, (i, j, T_ij) in enumerate(self._edges()):
             self.graph.add(
                 gtsam.BetweenFactorPose3(
                     i,
-                    i + 1,
-                    mat4_to_pose3(self.constraints[i]),
-                    self._create_noise_model(edge_noises[i])
+                    j,
+                    mat4_to_pose3(T_ij),
+                    self._create_noise_model(edge_noises[k]),
                 )
             )
 
         # additional constraints
         for c in self.additional_constraints:
-
             self.graph.add(
                 gtsam.BetweenFactorPose3(
                     c["i"],
@@ -150,59 +204,35 @@ class PoseGraph:
 
     def _optimize(self) -> Values:
 
-        # if self.graph is None or self.initial is None:
-        #     raise RuntimeError(
-        #         "Call build_graph() first."
-        #     )
-
         optimizer_name = self.optimizer_name.lower()
 
-        #  TODO: ISAM2 ausprobieren
         if optimizer_name == "gauss-newton":
-
             params = gtsam.GaussNewtonParams()
-
-            optimizer = gtsam.GaussNewtonOptimizer(
-                self.graph,
-                self.initial,
-                params,
-            )
+            optimizer_cls = gtsam.GaussNewtonOptimizer
 
         elif optimizer_name == "levenberg-marquardt":
-
             params = gtsam.LevenbergMarquardtParams()
-
-            optimizer = (
-                gtsam.LevenbergMarquardtOptimizer(
-                    self.graph,
-                    self.initial,
-                    params,
-                )
-            )
+            optimizer_cls = gtsam.LevenbergMarquardtOptimizer
 
         elif optimizer_name == "dogleg":
-
             params = gtsam.DoglegParams()
-
-            optimizer = gtsam.DoglegOptimizer(
-                self.graph,
-                self.initial,
-                params,
-            )
+            optimizer_cls = gtsam.DoglegOptimizer
 
         else:
             raise ValueError(
                 f"Unknown optimizer: {self.optimizer_name}"
             )
 
-        # optional parameter injection
+        # Parameter MUESSEN vor dem Erzeugen des Optimizers gesetzt werden,
+        # da dieser die Params kopiert.
         for key, value in self.optimizer_params.items():
-
             setter = f"set{key[0].upper()}{key[1:]}"
-
             if hasattr(params, setter):
                 getattr(params, setter)(value)
+            else:
+                warnings.warn(f"Optimizer-Parameter '{key}' unbekannt, ignoriert.")
 
+        optimizer = optimizer_cls(self.graph, self.initial, params)
         self.optimized = optimizer.optimize()
 
         return self.optimized
@@ -210,18 +240,16 @@ class PoseGraph:
 
 def registration_noise_model(confidence, ref_sigma=1e-2):
 
-    sigma_xy = min(2*1e-5, (2*1e-5) * confidence)
-    #sigma_yaw = np.deg2rad(max(2.0,20.0 * (1.0 - confidence)))
-    #print(f"sigma: {sigma_xy}")
+    sigma_xy = min(2 * 1e-5, (2 * 1e-5) * confidence)
 
+    # GTSAM Pose3 Tangent-Reihenfolge: [rot(x,y,z), trans(x,y,z)]
     sigmas = np.array([
-                       ref_sigma, # roll
-                       ref_sigma, # pitch
-                       sigma_xy,  # yaw
-                       sigma_xy,  # x
-                       sigma_xy,  # y
-                       ref_sigma, # z
-                       ]
-                    )
+        ref_sigma,  # roll
+        ref_sigma,  # pitch
+        sigma_xy,   # yaw
+        sigma_xy,   # x
+        sigma_xy,   # y
+        ref_sigma,  # z
+    ])
 
     return gtsam.noiseModel.Diagonal.Sigmas(sigmas)
